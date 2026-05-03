@@ -1,0 +1,3 @@
+pywebview
+PyMuPDF
+pywin32

@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Public Binder - Page Lab</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="Sortable.min.js"></script>
+</head>
+<body>
+
+    <!-- Context Menu -->
+    <div id="context-menu" class="context-menu"></div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay">
+        <div class="spinner"></div>
+        <div id="loading-text">처리 중입니다...</div>
+    </div>
+
+    <!-- Zoom Modal -->
+    <div id="zoom-modal" class="modal" onclick="this.style.display='none'">
+        <img class="modal-content" id="zoom-img">
+    </div>
+
+    <!-- Top Navigation -->
+    <div class="top-nav">
+        <h1>Public Binder <span style="color:var(--text-secondary);font-weight:400;">| Page Lab</span></h1>
+        <div style="display:flex; gap:12px;">
+            <button class="secondary-btn" onclick="resetWorkspace()">초기화 (Reset)</button>
+        </div>
+    </div>
+
+    <div class="workspace">
+        <!-- Left Panel: Original Files -->
+        <div class="left-panel">
+            <div class="panel-header">
+                <h3>원본 파일 (Files)</h3>
+                <button class="primary-btn" style="padding: 4px 8px; font-size: 12px;" onclick="uploadFiles()">+</button>
+            </div>
+            <div class="file-list" id="file-list">
+                <div style="color: var(--text-secondary); font-size: 13px; text-align: center; margin-top: 20px;">
+                    파일을 업로드해주세요.
+                </div>
+            </div>
+            <div style="padding: 12px; font-size: 12px; color: var(--text-secondary); background: #f1f3f4;">
+                💡 <b>우클릭</b>하여 원본/편집 다운로드
+            </div>
+        </div>
+
+        <!-- Center Panel: Contextual Viewer -->
+        <div class="center-panel">
+            <div class="toolbar">
+                <div class="view-context-label" id="context-label">
+                    현재 보기: <strong id="context-name">대기 중</strong>
+                </div>
+                
+                <div style="margin-left: auto; display: flex; gap: 8px;">
+                    <button class="secondary-btn" onclick="addBlankPage()">+ 간지 추가</button>
+                    <button class="secondary-btn" onclick="rotateSelected()">선택 회전</button>
+                    <button class="danger-btn" onclick="deleteSelected()">선택 제외(삭제)</button>
+                </div>
+            </div>
+            
+            <div class="viewer-grid" id="main-viewer">
+                <div class="empty-state" id="viewer-empty">
+                    <h2>Drag & Drop 지원</h2>
+                    <p>좌측 원본 파일을 선택하거나, 우측 폴더로 쓸어 담으세요.<br><br>Ctrl/Shift 다중 선택 완벽 지원.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel: Groups (Folders) -->
+        <div class="right-panel">
+            <div class="panel-header">
+                <h3>분류 폴더 (Groups)</h3>
+                <button class="primary-btn" style="padding: 4px 8px; font-size: 12px;" onclick="addGroup()">+ 폴더</button>
+            </div>
+            <div class="groups-container" id="groups-container">
+            </div>
+            <div style="padding: 12px; font-size: 12px; color: var(--text-secondary); background: #f1f3f4;">
+                💡 <b>우클릭</b>하여 폴더별/통합 다운로드<br>
+                💡 Ctrl/Shift로 폴더 다중 선택 가능
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
