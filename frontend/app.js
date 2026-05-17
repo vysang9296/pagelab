@@ -114,17 +114,70 @@ window.addEventListener('drop', async e => {
 function renderSidebar() {
     const list = document.getElementById('file-list');
     list.innerHTML = '';
+    if (Object.keys(sourceFiles).length === 0) {
+        list.innerHTML = '<div style="color: var(--text-secondary); font-size: 13px; text-align: center; margin-top: 20px;">파일을 업로드해주세요.</div>';
+        return;
+    }
     Object.keys(sourceFiles).forEach(fileId => {
         const item = document.createElement('div');
         item.className = 'file-item';
-        item.innerText = filesData[fileId].filename;
         if(viewMode === 'source' && currentActiveId === fileId) item.classList.add('active');
+        
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'file-name';
+        nameSpan.innerText = filesData[fileId].filename;
+        nameSpan.title = filesData[fileId].filename;
+        
+        const delBtn = document.createElement('button');
+        delBtn.className = 'file-del-btn';
+        delBtn.innerText = '✖';
+        delBtn.title = '파일 제거';
+        delBtn.onclick = (e) => {
+            e.stopPropagation();
+            deleteSourceFile(fileId);
+        };
+        
+        item.appendChild(nameSpan);
+        item.appendChild(delBtn);
         
         item.onclick = () => selectSource(fileId);
         item.oncontextmenu = (e) => { e.preventDefault(); showSourceContextMenu(e, fileId); };
         
         list.appendChild(item);
     });
+}
+
+function deleteSourceFile(fileId) {
+    if(!confirm("이 파일과 관련된 모든 페이지(분류 폴더에 담긴 페이지 포함)를 작업 공간에서 제거하시겠습니까?")) return;
+    
+    // 1. Remove from groups
+    Object.keys(groups).forEach(gId => {
+        groups[gId].pageIds = groups[gId].pageIds.filter(pId => pagePool[pId]?.fileId !== fileId);
+    });
+    
+    // 2. Remove from pagePool
+    if (sourceFiles[fileId]) {
+        sourceFiles[fileId].forEach(pId => { delete pagePool[pId]; });
+    }
+    
+    // 3. Remove from sourceFiles and filesData
+    delete sourceFiles[fileId];
+    delete filesData[fileId];
+    
+    // 4. Update active view if needed
+    if (currentActiveId === fileId) {
+        const remainingFiles = Object.keys(sourceFiles);
+        if (remainingFiles.length > 0) {
+            selectSource(remainingFiles[0]);
+        } else {
+            currentActiveId = null;
+            document.getElementById('context-name').innerText = '대기 중';
+        }
+    }
+    
+    renderSidebar();
+    updateGroupSidebar();
+    renderCenterViewer();
 }
 
 function updateGroupSidebar() {
@@ -399,25 +452,34 @@ function addBlankPage() {
 }
 
 function resetWorkspace() {
-    if(!confirm("모든 편집 및 그룹을 초기화하시겠습니까?")) return;
-    Object.keys(groups).forEach(g => { groups[g].pageIds = []; });
-    Object.values(pagePool).forEach(p => { p.rotation = 0; p.excluded = false; });
+    if(!confirm("모든 업로드된 파일과 편집 내용을 초기화하시겠습니까?")) return;
     
-    // Restore original source orders
-    Object.keys(sourceFiles).forEach(fId => {
-        sourceFiles[fId] = [];
-        filesData[fId].thumbnails.forEach(t => {
-            sourceFiles[fId].push(`page_${fId}_${t.page_index}`);
-        });
-    });
+    filesData = {};
+    pagePool = {};
+    sourceFiles = {};
+    groups = { 'group_1': { name: '1페이지 그룹', pageIds: [] } };
     
-    updateGroupSidebar(); renderCenterViewer();
+    viewMode = 'source';
+    currentActiveId = null;
+    selectedGroupIds.clear();
+    lastClickedGroupId = null;
+    lastClickedThumbId = null;
+    
+    document.getElementById('context-name').innerText = '대기 중';
+    renderSidebar();
+    updateGroupSidebar();
+    renderCenterViewer();
 }
 function openZoom(src) { document.getElementById('zoom-img').src = src; document.getElementById('zoom-modal').style.display = 'block'; }
 
 // -------------------------
 // 5. Context Menus & Export Logic
 // -------------------------
+function escapeHTML(str) {
+    if (!str) return '';
+    return str.replace(/[&<>'"]/g, tag => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'}[tag] || tag));
+}
+
 function showMenu(e, htmlItems) {
     contextMenu.innerHTML = htmlItems;
     contextMenu.style.display = 'block';
@@ -427,11 +489,15 @@ function showMenu(e, htmlItems) {
 
 function showSourceContextMenu(e, fileId) {
     if(viewMode !== 'source' || currentActiveId !== fileId) selectSource(fileId);
-    const fname = filesData[fileId].filename;
+    const fname = escapeHTML(filesData[fileId].filename);
     
     const html = `
+        <div class="context-menu-item" style="font-weight:bold; color:#888; cursor:default;">${fname}</div>
+        <div class="context-menu-divider"></div>
         <div class="context-menu-item" onclick="exportSourceOriginal('${fileId}')">📥 원본 다운로드</div>
         <div class="context-menu-item" onclick="exportSourceEdited('${fileId}')">✂️ 편집본 다운로드</div>
+        <div class="context-menu-divider"></div>
+        <div class="context-menu-item" onclick="deleteSourceFile('${fileId}')" style="color:var(--danger-red);">🗑️ 파일 목록에서 제거</div>
     `;
     showMenu(e, html);
 }
@@ -443,8 +509,9 @@ function showGroupContextMenu(e, groupId) {
     let html = '';
     
     if(!isMulti) {
+        const safeName = escapeHTML(groups[groupId].name);
         html = `
-            <div class="context-menu-item" style="font-weight:bold">${groups[groupId].name}</div>
+            <div class="context-menu-item" style="font-weight:bold; color:#888; cursor:default;">${safeName}</div>
             <div class="context-menu-divider"></div>
             <div class="context-menu-item" onclick="renameGroup('${groupId}')">✏️ 폴더 이름 변경</div>
             <div class="context-menu-item" onclick="exportGroupMerge()">🗂️ 통합 다운로드 (PDF)</div>
@@ -452,7 +519,7 @@ function showGroupContextMenu(e, groupId) {
         `;
     } else {
         html = `
-            <div class="context-menu-item" style="font-weight:bold">${selectedGroupIds.size}개 폴더 선택됨</div>
+            <div class="context-menu-item" style="font-weight:bold; color:#888; cursor:default;">${selectedGroupIds.size}개 폴더 선택됨</div>
             <div class="context-menu-divider"></div>
             <div class="context-menu-item" onclick="exportMultiMerge()">🗂️ 다중 통합 다운로드 (통합PDF 모음 ZIP)</div>
             <div class="context-menu-item" onclick="exportMultiSeparate()">📑 다중 파일별 다운로드 (이중 ZIP)</div>

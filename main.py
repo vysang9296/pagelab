@@ -4,6 +4,14 @@ import sys
 import uuid
 import traceback
 import shutil
+import re
+
+def safe_filename(name: str, default="Export") -> str:
+    if not name: return default
+    name = str(name).strip()
+    name = re.sub(r'[\\/:*?"<>|]+', '_', name)
+    name = name.replace('..', '_')
+    return name[:100] or default
 
 from backend.hwp_converter import get_hwp_converter
 from backend.pdf_processor import PdfProcessor
@@ -30,7 +38,9 @@ class Api:
         import base64
         temp_dir = self.fm.get_temp_path("dropped_files")
         os.makedirs(temp_dir, exist_ok=True)
-        file_path = os.path.join(temp_dir, filename)
+        
+        safe_name = safe_filename(os.path.basename(filename), "dropped_file")
+        file_path = os.path.join(temp_dir, safe_name)
         
         with open(file_path, "wb") as f:
             f.write(base64.b64decode(base64_data))
@@ -100,6 +110,20 @@ class Api:
         export_type: 'single_pdf', 'single_zip'
         payload contains generation instructions.
         """
+        if export_type not in ('single_pdf', 'single_zip'):
+            self.log(f"Blocked invalid export_type: {export_type}")
+            return False
+
+        # Validate rotation in payload
+        if isinstance(payload, dict) and 'pages' in payload:
+            for p in payload['pages']:
+                if p.get('rotation') not in (0, 90, 180, 270): p['rotation'] = 0
+        elif isinstance(payload, list):
+            for item in payload:
+                if 'data' in item and 'pages' in item['data']:
+                    for p in item['data']['pages']:
+                        if p.get('rotation') not in (0, 90, 180, 270): p['rotation'] = 0
+
         try:
             temp_dir = self.fm.get_temp_path(f"export_{uuid.uuid4().hex[:8]}")
             os.makedirs(temp_dir, exist_ok=True)
@@ -107,27 +131,29 @@ class Api:
             if export_type == 'single_pdf':
                 # payload is a single group dict
                 PdfProcessor.merge_and_export(payload, temp_dir)
-                generated_pdf = os.path.join(temp_dir, f"{payload.get('group_name', 'Export')}.pdf")
+                safe_name = safe_filename(payload.get('group_name', 'Export'))
+                generated_pdf = os.path.join(temp_dir, f"{safe_name}.pdf")
                 shutil.copy2(generated_pdf, save_path)
                 
             elif export_type == 'single_zip':
                 # payload is a list of items to zip
-                # items can be PDFs to generate, or Sub-Zips to generate
                 files_to_zip = []
                 for item in payload:
                     if item.get('type') == 'pdf':
-                        # Generate PDF
+                        safe_grp_name = safe_filename(item['data'].get('group_name', 'Export'))
+                        item['data']['group_name'] = safe_grp_name
                         pdf_path = PdfProcessor.merge_and_export(item['data'], temp_dir)
                         files_to_zip.append(pdf_path)
                     elif item.get('type') == 'zip':
-                        # Generate Sub-ZIP
-                        sub_dir = os.path.join(temp_dir, item['name'])
+                        safe_sub_name = safe_filename(item.get('name', 'Folder'))
+                        sub_dir = os.path.join(temp_dir, safe_sub_name)
                         os.makedirs(sub_dir, exist_ok=True)
                         sub_pdfs = []
                         for sub_pdf_data in item['data']:
+                            sub_pdf_data['group_name'] = safe_filename(sub_pdf_data.get('group_name', 'Export'))
                             sp = PdfProcessor.merge_and_export(sub_pdf_data, sub_dir)
                             sub_pdfs.append(sp)
-                        sub_zip_path = os.path.join(temp_dir, f"{item['name']}.zip")
+                        sub_zip_path = os.path.join(temp_dir, f"{safe_sub_name}.zip")
                         self.fm.create_zip_archive(sub_pdfs, sub_zip_path)
                         files_to_zip.append(sub_zip_path)
                 

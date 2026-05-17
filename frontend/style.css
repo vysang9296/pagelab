@@ -44,6 +44,14 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-
     border-radius: var(--radius); font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 8px;
     transition: all 0.1s; user-select: none;
 }
+.file-name { flex-grow: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-del-btn {
+    background: transparent; border: none; color: var(--text-secondary); font-size: 14px;
+    cursor: pointer; padding: 2px 6px; border-radius: 4px; display: none;
+}
+.file-item:hover .file-del-btn { display: block; }
+.file-del-btn:hover { background-color: #e8eaed; color: var(--danger-red); }
+
 .file-item.active, .group-folder.active { border-color: var(--primary-blue); border-width: 2px; }
 /* Multi-selection for groups */
 .group-folder.multi-selected { background-color: #e8f0fe; border-color: var(--primary-blue); }
