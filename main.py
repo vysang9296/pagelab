@@ -142,6 +142,68 @@ class Api:
                 
         return {"status": "success", "groups": groups, "truncated": truncated}
 
+    def get_local_tree_recursive(self, target_path):
+        """Recursively scans target_path and returns a nested tree structure for virtual staging."""
+        if not os.path.exists(target_path):
+            return {"status": "error", "message": "Path does not exist"}
+        
+        limit_files = 2000
+        self._scanned_count = 0
+        
+        from backend.local_nav import format_size, format_mtime
+
+        def _scan(path):
+            if self._scanned_count >= limit_files:
+                return None
+            name = os.path.basename(path)
+            if not name:
+                name = path
+                
+            if os.path.isdir(path):
+                node_id = f"sfolder_{uuid.uuid4().hex[:8]}"
+                node = {
+                    "id": node_id,
+                    "name": name,
+                    "isDir": True,
+                    "path": path,
+                    "children": []
+                }
+                try:
+                    for entry in os.scandir(path):
+                        if entry.name.startswith('.'): continue
+                        child_node = _scan(entry.path)
+                        if child_node:
+                            node["children"].append(child_node)
+                except PermissionError:
+                    pass
+                return node
+            else:
+                self._scanned_count += 1
+                try:
+                    stat_info = os.stat(path)
+                    size_str = format_size(stat_info.st_size)
+                    mtime_str = format_mtime(stat_info.st_mtime)
+                except:
+                    size_str = "0 B"
+                    mtime_str = ""
+                
+                return {
+                    "id": f"sfile_{uuid.uuid4().hex[:8]}",
+                    "name": name,
+                    "isDir": False,
+                    "path": path,
+                    "size": size_str,
+                    "mtime": mtime_str
+                }
+        
+        try:
+            tree = _scan(target_path)
+            if tree is None:
+                return {"status": "error", "message": "Failed to scan folder or too many files"}
+            return {"status": "success", "tree": tree, "truncated": self._scanned_count >= limit_files}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
     def fl_index_current_folder(self, folder_path):
         """Explicit on-demand indexing triggered by user button."""
         if not folder_path or not os.path.exists(folder_path): return False
@@ -321,7 +383,6 @@ class Api:
             return False
 
         self.log(f"Committing real staging tree to: {dest_root}")
-        success_count = 0
         try:
             # Create a Staging_Export wrapper directory.
             # If it already exists, generate Staging_Export(1), Staging_Export(2), etc.
@@ -332,50 +393,16 @@ class Api:
                 export_root = os.path.join(dest_root, f"{base_export_name}({counter})")
                 counter += 1
             
-            os.makedirs(export_root, exist_ok=True)
-            self.log(f"[Commit] Created wrapper root: {export_root}")
-
-            import re
-            for folder_node in staging_tree:
-                folder_name = folder_node.get('name', '새 폴더').strip()
-                # Split by slashes to preserve nested directories
-                parts = [ "".join([c for c in part if c not in r':*?"<>|']) for part in re.split(r'[\\/]', folder_name) ]
-                parts = [p for p in parts if p]
-                if not parts:
-                    parts = ["Folder"]
-                
-                target_dir = os.path.join(export_root, *parts)
-                os.makedirs(target_dir, exist_ok=True)
-                self.log(f"[Commit] Created/Verified dir: {target_dir}")
-
-                for child in folder_node.get('children', []):
-                    src_path = child.get('path')
-                    if not src_path or not os.path.exists(src_path): continue
-                    
-                    dest_path = os.path.join(target_dir, os.path.basename(src_path))
-                    
-                    # Handle duplicate
-                    if os.path.exists(dest_path):
-                        base, ext = os.path.splitext(dest_path)
-                        counter = 1
-                        while os.path.exists(dest_path):
-                            dest_path = f"{base}({counter}){ext}"
-                            counter += 1
-
-                    if os.path.isdir(src_path):
-                        if os.path.exists(dest_path):
-                            shutil.copytree(src_path, dest_path, dirs_exist_ok=True, symlinks=True)
-                        else:
-                            shutil.copytree(src_path, dest_path, symlinks=True)
-                        success_count += 1
-                    else:
-                        shutil.copy2(src_path, dest_path)
-                        success_count += 1
-                    self.log(f"[Commit] Copied: {src_path} -> {dest_path}")
-
-            self.log(f"Successfully committed {success_count} files/folders to {export_root}")
-            self._window.evaluate_js(f"alert('최종 커밋 성공!\\n{success_count}개의 항목이 실제 디렉토리에 동기화되었습니다.\\n위치: {export_root}')")
-            return True
+            success = VirtualFS.export_virtual_tree(staging_tree, export_root, export_mode='copy')
+            if success:
+                total_files = 0
+                for root, dirs, files in os.walk(export_root):
+                    total_files += len(files)
+                self.log(f"Successfully committed {total_files} files to {export_root}")
+                self._window.evaluate_js(f"alert('최종 커밋 성공!\\n{total_files}개의 항목이 실제 디렉토리에 동기화되었습니다.\\n위치: {export_root}')")
+                return True
+            else:
+                raise RuntimeError("Staging copy failed inside VirtualFS")
         except Exception as e:
             self.log(f"Commit error: {traceback.format_exc()}")
             self._window.evaluate_js(f"alert('최종 커밋 중 오류 발생:\\n{str(e)}')")

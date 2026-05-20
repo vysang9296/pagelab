@@ -8,7 +8,7 @@ class VirtualFS:
     @staticmethod
     def export_virtual_tree(virtual_folders: list, save_path: str, export_mode: str = 'zip') -> bool:
         """
-        virtual_folders: [{'id': '...', 'name': '...', 'children': [{'path': '...', 'name': '...'}, ...]}]
+        virtual_folders: Nested recursive tree structure containing folders and files.
         save_path: Destination zip file path OR destination folder path.
         export_mode: 'zip' or 'copy'
         """
@@ -17,37 +17,32 @@ class VirtualFS:
         os.makedirs(temp_dir, exist_ok=True)
 
         try:
-            files_to_zip = []
-
-            import re
-            # 1. Build virtual structure inside temp_dir
-            for folder in virtual_folders:
-                folder_name = folder.get('name', 'Folder').strip()
-                # Split by slashes to preserve nested directories
-                parts = [ "".join([c for c in part if c not in r':*?"<>|']) for part in re.split(r'[\\/]', folder_name) ]
-                parts = [p for p in parts if p]
-                if not parts:
-                    parts = ["Folder"]
-                folder_dir = os.path.join(temp_dir, *parts)
-                os.makedirs(folder_dir, exist_ok=True)
-
-                for child in folder.get('children', []):
-                    src_path = child.get('path')
-                    dest_name = child.get('name', os.path.basename(src_path))
-                    dest_name = "".join([c for c in dest_name if c not in r'\/:*?"<>|'])
-                    
+            def copy_node_recursive(node, current_dest_dir):
+                name = node.get('name', '').strip()
+                name = "".join([c for c in name if c not in r':*?"<>|'])
+                if not name:
+                    name = "Folder" if node.get('isDir') else "File"
+                
+                is_dir = node.get('isDir', False)
+                if is_dir:
+                    dir_path = os.path.join(current_dest_dir, name)
+                    os.makedirs(dir_path, exist_ok=True)
+                    for child in node.get('children', []):
+                        copy_node_recursive(child, dir_path)
+                else:
+                    src_path = node.get('path')
                     if src_path and os.path.exists(src_path):
-                        dest_path = os.path.join(folder_dir, dest_name)
-                        # Handle duplicate names in the same virtual folder
-                        base, ext = os.path.splitext(dest_name)
+                        dest_path = os.path.join(current_dest_dir, name)
+                        base, ext = os.path.splitext(name)
                         counter = 1
                         while os.path.exists(dest_path):
-                            dest_path = os.path.join(folder_dir, f"{base}({counter}){ext}")
+                            dest_path = os.path.join(current_dest_dir, f"{base}({counter}){ext}")
                             counter += 1
-
                         shutil.copy2(src_path, dest_path)
 
-            # 2. Final Export
+            for item in virtual_folders:
+                copy_node_recursive(item, temp_dir)
+
             if export_mode == 'zip':
                 import zipfile
                 with zipfile.ZipFile(save_path, 'w', zipfile.ZIP_DEFLATED) as zf:
@@ -61,7 +56,6 @@ class VirtualFS:
                             arcname = os.path.relpath(file_path, temp_dir)
                             zf.write(file_path, arcname)
             elif export_mode == 'copy':
-                # Copy entire temp_dir structure to save_path
                 if os.path.exists(save_path):
                     shutil.rmtree(save_path)
                 shutil.copytree(temp_dir, save_path)

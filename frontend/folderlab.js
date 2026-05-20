@@ -3,7 +3,7 @@
 
 let flLocalTreeData = [];
 let flStagingFolders = [
-    { id: 'sfolder_1', name: '스테이징 폴더 1', children: [] }
+    { id: 'sfolder_1', name: '스테이징 폴더 1', isDir: true, children: [] }
 ];
 let flActiveStagingFolderId = 'sfolder_1';
 
@@ -345,155 +345,347 @@ async function flTransferSelected(direction) {
     }
 }
 
-// 3. Unified Staging Tree
+// 3. Unified Staging Tree (Recursive Nested Tree)
 function flRenderStagingTree() {
     const container = document.getElementById('fl-staging-tree');
     container.innerHTML = '';
 
-    flStagingFolders.forEach(folder => {
-        const folderEl = document.createElement('div'); folderEl.className = 'group-folder'; folderEl.dataset.id = folder.id;
-        if (folder.id === flActiveStagingFolderId) folderEl.classList.add('active');
+    if (!flStagingFolders || flStagingFolders.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state" style="position:static; transform:none; margin-top:40px;">
+                <h2>스테이징 폴더 구성</h2>
+                <p>좌측 탐색기나 하단 검색 결과를 드래그 앤 드롭하여 문서를 모으고 구조화하세요.<br>이후 <b>[ZIP 내보내기]</b> 또는 <b>[로컬 동기화]</b>를 실행할 수 있습니다.</p>
+            </div>`;
+        return;
+    }
 
-        const chk = document.createElement('input'); chk.type = 'checkbox'; chk.className = 'fl-tree-checkbox'; chk.onclick = (e) => { e.stopPropagation(); flCheckMultiDelState(); };
-        const icon = document.createElement('span'); icon.className = 'folder-icon'; icon.innerText = '📁';
-        const input = document.createElement('input'); input.type = 'text'; input.className = 'group-name-input'; input.value = folder.name;
-        
-        // Edit logic
-        input.ondblclick = (e) => { e.stopPropagation(); input.classList.add('editing'); input.focus(); };
-        input.onblur = () => { input.classList.remove('editing'); folder.name = input.value; }; input.onkeydown = (e) => { if(e.key === 'Enter') input.blur(); };
-        
-        const editBtn = document.createElement('button'); editBtn.className = 'edit-btn'; editBtn.innerText = '✏️'; editBtn.title = '이름 변경';
-        editBtn.onclick = (e) => { e.stopPropagation(); input.classList.add('editing'); input.focus(); };
-
-        const badge = document.createElement('span'); badge.className = 'badge'; badge.innerText = folder.children.length;
-
-        folderEl.appendChild(chk); folderEl.appendChild(icon); folderEl.appendChild(input); folderEl.appendChild(editBtn); folderEl.appendChild(badge);
-        
-        folderEl.onclick = (e) => {
-            if (e.target === input || e.target === editBtn) return;
-            if (e.target !== chk) {
-                chk.checked = !chk.checked;
-            }
-            flCheckMultiDelState();
-            
-            flActiveStagingFolderId = folder.id;
-            document.querySelectorAll('.group-folder').forEach(el => {
-                el.classList.toggle('active', el.dataset.id === folder.id);
-            });
-        };
-
-        folderEl.ondragover = (e) => { e.preventDefault(); folderEl.classList.add('drag-over'); };
-        folderEl.ondragleave = (e) => folderEl.classList.remove('drag-over');
-        folderEl.ondrop = (e) => { e.preventDefault(); folderEl.classList.remove('drag-over'); flHandleDropToStaging(folder.id, e.dataTransfer); };
-
-        container.appendChild(folderEl);
-
-        if (folder.children.length > 0) {
-            const childCont = document.createElement('div'); childCont.style.paddingLeft = '24px';
-            
-            childCont.ondragover = (e) => { e.preventDefault(); folderEl.classList.add('drag-over'); };
-            childCont.ondragleave = (e) => { folderEl.classList.remove('drag-over'); };
-            childCont.ondrop = (e) => { 
-                e.preventDefault(); e.stopPropagation(); 
-                folderEl.classList.remove('drag-over'); 
-                flHandleDropToStaging(folder.id, e.dataTransfer); 
-            };
-
-            folder.children.forEach((child, childIdx) => {
-                const childEl = document.createElement('div'); childEl.className = 'fl-tree-item'; childEl.style.background = '#fff';
-                childEl.draggable = true;
-                
-                childEl.dataset.path = child.path;
-                childEl.dataset.name = child.name;
-                childEl.dataset.isdir = 'false';
-                childEl.dataset.treetype = 'staging';
-
-                const cChk = document.createElement('input'); cChk.type = 'checkbox'; cChk.className = 'fl-tree-checkbox'; cChk.onclick = (e) => { e.stopPropagation(); flCheckMultiDelState(); };
-                childEl.appendChild(cChk);
-                childEl.innerHTML += `<span class="fl-item-icon">📄</span><span class="fl-item-name">${child.name}</span>`;
-                
-                const delBtn = document.createElement('button'); delBtn.className = 'file-del-btn'; delBtn.innerText = '✖'; delBtn.style.display = 'block'; delBtn.style.marginLeft = 'auto';
-                delBtn.onclick = (e) => { e.stopPropagation(); folder.children.splice(childIdx, 1); flRenderStagingTree(); flCheckMultiDelState(); }; childEl.appendChild(delBtn);
-                
-                childEl.onclick = (e) => {
-                    if (e.target === cChk || e.target === delBtn) return;
-                    cChk.checked = !cChk.checked;
-                    flCheckMultiDelState();
-                };
-
-                childEl.ondragstart = (e) => {
-                    if (cChk.checked) {
-                        const checkedItems = Array.from(document.querySelectorAll('.fl-staging-tree .fl-tree-item')).filter(itemEl => {
-                            const chk = itemEl.querySelector('.fl-tree-checkbox');
-                            return chk && chk.checked;
-                        }).map(itemEl => {
-                            const parentListCont = itemEl.parentElement;
-                            const fEl = parentListCont.previousElementSibling;
-                            const sourceFolderId = fEl ? fEl.dataset.id : folder.id;
-                            return {
-                                type: 'staging_file',
-                                path: itemEl.dataset.path,
-                                name: itemEl.dataset.name,
-                                source_folder_id: sourceFolderId,
-                                source_tree: 'staging'
-                            };
-                        });
-                        e.dataTransfer.setData('text/plain', JSON.stringify(checkedItems));
-                    } else {
-                        e.dataTransfer.setData('text/plain', JSON.stringify([{
-                            type: 'staging_file', path: child.path, name: child.name,
-                            source_folder_id: folder.id, child_idx: childIdx, source_tree: 'staging'
-                        }]));
-                    }
-                };
-
-                childCont.appendChild(childEl);
-            });
-            container.appendChild(childCont);
-        }
+    flStagingFolders.forEach(node => {
+        container.appendChild(flCreateStagingTreeNode(node, 0, null));
     });
 }
 
-function flAddStagingFolder() { const sId = 'sfolder_' + Date.now(); flStagingFolders.push({ id: sId, name: `새 폴더 ${flStagingFolders.length + 1}`, children: [] }); flActiveStagingFolderId = sId; flRenderStagingTree(); }
+function flCreateStagingTreeNode(node, depth, parentNode = null) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'fl-node-wrapper';
+    wrapper.dataset.id = node.id;
+
+    const item = document.createElement('div');
+    item.className = 'fl-tree-item';
+    if (node.id === flActiveStagingFolderId && node.isDir) {
+        item.classList.add('active');
+    }
+    item.style.paddingLeft = `${depth * 16 + 8}px`;
+    item.draggable = true;
+    item.dataset.id = node.id;
+    item.dataset.name = node.name;
+    item.dataset.isdir = node.isDir;
+    item.dataset.treetype = 'staging';
+
+    const chk = document.createElement('input');
+    chk.type = 'checkbox';
+    chk.className = 'fl-tree-checkbox';
+    chk.onclick = (e) => {
+        e.stopPropagation();
+        if (node.isDir) {
+            const childChks = wrapper.querySelectorAll('.fl-tree-children .fl-tree-checkbox');
+            childChks.forEach(c => c.checked = chk.checked);
+        }
+        flCheckMultiDelState();
+    };
+
+    const toggleBtn = document.createElement('span');
+    toggleBtn.className = 'fl-toggle-btn';
+    toggleBtn.style.width = '14px'; toggleBtn.style.display = 'inline-block'; toggleBtn.style.cursor = 'pointer';
+    toggleBtn.innerText = node.isDir ? '▼' : '';
+    toggleBtn.style.color = 'var(--text-secondary)'; toggleBtn.style.fontSize = '10px';
+
+    const icon = document.createElement('span');
+    icon.className = 'fl-item-icon';
+    icon.innerText = node.isDir ? '📂' : '📄';
+
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'fl-item-name';
+    
+    if (node.isDir) {
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'group-name-input';
+        input.value = node.name;
+        input.style.border = 'none';
+        input.style.background = 'transparent';
+        input.style.fontWeight = 'bold';
+        input.style.width = '150px';
+        input.ondblclick = (e) => { e.stopPropagation(); input.classList.add('editing'); input.focus(); };
+        input.onblur = () => { input.classList.remove('editing'); node.name = input.value; };
+        input.onkeydown = (e) => { if(e.key === 'Enter') input.blur(); };
+        
+        const editBtn = document.createElement('button');
+        editBtn.className = 'edit-btn';
+        editBtn.innerText = '✏️';
+        editBtn.title = '이름 변경';
+        editBtn.style.border = 'none';
+        editBtn.style.background = 'transparent';
+        editBtn.style.cursor = 'pointer';
+        editBtn.style.marginLeft = '4px';
+        editBtn.onclick = (e) => { e.stopPropagation(); input.classList.add('editing'); input.focus(); };
+
+        nameSpan.appendChild(input);
+        nameSpan.appendChild(editBtn);
+    } else {
+        nameSpan.innerText = node.name;
+        nameSpan.title = node.path;
+    }
+
+    const meta = document.createElement('span');
+    meta.className = 'fl-item-meta';
+    
+    if (node.isDir) {
+        const badge = document.createElement('span');
+        badge.className = 'badge';
+        badge.innerText = node.children ? node.children.length : 0;
+        badge.style.background = 'var(--primary-blue)';
+        badge.style.color = '#fff';
+        badge.style.padding = '1px 6px';
+        badge.style.borderRadius = '10px';
+        badge.style.fontSize = '10px';
+        badge.style.marginLeft = '8px';
+        meta.appendChild(badge);
+    } else {
+        const sizeSpan = document.createElement('span'); 
+        sizeSpan.className = 'fl-item-size'; 
+        sizeSpan.innerText = node.size || '';
+        meta.appendChild(sizeSpan);
+    }
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'file-del-btn';
+    delBtn.innerText = '✖';
+    delBtn.style.border = 'none';
+    delBtn.style.background = 'transparent';
+    delBtn.style.cursor = 'pointer';
+    delBtn.style.color = 'var(--danger-red)';
+    delBtn.style.marginLeft = 'auto';
+    delBtn.style.fontWeight = 'bold';
+    delBtn.onclick = (e) => {
+        e.stopPropagation();
+        flRemoveNodeFromStaging(node.id);
+    };
+
+    item.appendChild(chk);
+    item.appendChild(toggleBtn);
+    item.appendChild(icon);
+    item.appendChild(nameSpan);
+    item.appendChild(meta);
+    item.appendChild(delBtn);
+    wrapper.appendChild(item);
+
+    const childContainer = document.createElement('div');
+    childContainer.className = 'fl-tree-children';
+    childContainer.style.display = 'block';
+    wrapper.appendChild(childContainer);
+
+    if (node.isDir) {
+        let isExpanded = true;
+        
+        const toggleFunc = (e) => {
+            e.stopPropagation();
+            if (!isExpanded) {
+                toggleBtn.innerText = '▼'; 
+                icon.innerText = '📂';
+                childContainer.style.display = 'block';
+                isExpanded = true;
+            } else {
+                toggleBtn.innerText = '▶'; 
+                icon.innerText = '📁';
+                childContainer.style.display = 'none';
+                isExpanded = false;
+            }
+        };
+        toggleBtn.onclick = toggleFunc;
+        icon.onclick = toggleFunc;
+
+        if (node.children && node.children.length > 0) {
+            node.children.forEach(child => {
+                childContainer.appendChild(flCreateStagingTreeNode(child, depth + 1, node));
+            });
+        } else {
+            const emptyEl = document.createElement('div');
+            emptyEl.style.paddingLeft = `${(depth + 1) * 16 + 8}px`;
+            emptyEl.style.color = 'var(--text-secondary)';
+            emptyEl.style.fontSize = '11px';
+            emptyEl.style.fontStyle = 'italic';
+            emptyEl.innerText = '(비어 있음)';
+            childContainer.appendChild(emptyEl);
+        }
+
+        item.ondragover = (e) => { e.preventDefault(); item.style.backgroundColor = '#e8f0fe'; };
+        item.ondragleave = (e) => { item.style.backgroundColor = ''; };
+        item.ondrop = (e) => {
+            e.preventDefault(); e.stopPropagation(); item.style.backgroundColor = '';
+            flHandleDropToStagingFolder(node.id, e.dataTransfer);
+        };
+        childContainer.ondragover = (e) => { e.preventDefault(); item.style.backgroundColor = '#e8f0fe'; };
+        childContainer.ondragleave = (e) => { item.style.backgroundColor = ''; };
+        childContainer.ondrop = (e) => {
+            e.preventDefault(); e.stopPropagation(); item.style.backgroundColor = '';
+            flHandleDropToStagingFolder(node.id, e.dataTransfer);
+        };
+    }
+
+    item.ondragstart = (e) => {
+        e.stopPropagation();
+        e.dataTransfer.setData('text/plain', JSON.stringify({
+            source_tree: 'staging',
+            id: node.id,
+            name: node.name,
+            isDir: node.isDir,
+            path: node.path
+        }));
+    };
+
+    item.onclick = (e) => {
+        e.stopPropagation();
+        if (node.isDir) {
+            flActiveStagingFolderId = node.id;
+            document.querySelectorAll('.fl-staging-tree .fl-tree-item').forEach(el => el.classList.remove('active'));
+            item.classList.add('active');
+        }
+    };
+
+    return wrapper;
+}
+
+function flRemoveNodeFromStaging(id) {
+    function removeRecursive(arr) {
+        const idx = arr.findIndex(item => item.id === id);
+        if (idx > -1) {
+            arr.splice(idx, 1);
+            return true;
+        }
+        for (const item of arr) {
+            if (item.isDir && item.children) {
+                if (removeRecursive(item.children)) return true;
+            }
+        }
+        return false;
+    }
+    removeRecursive(flStagingFolders);
+    flRenderStagingTree();
+    flCheckMultiDelState();
+}
+
+function flAddStagingFolder() {
+    const sId = 'sfolder_' + Date.now();
+    const newFolder = { id: sId, name: `새 폴더 ${flStagingFolders.length + 1}`, isDir: true, children: [] };
+    
+    let added = false;
+    if (flActiveStagingFolderId) {
+        function addRecursive(arr) {
+            const folder = arr.find(item => item.id === flActiveStagingFolderId && item.isDir);
+            if (folder) {
+                folder.children.push(newFolder);
+                return true;
+            }
+            for (const item of arr) {
+                if (item.isDir && item.children) {
+                    if (addRecursive(item.children)) return true;
+                }
+            }
+            return false;
+        }
+        added = addRecursive(flStagingFolders);
+    }
+    
+    if (!added) {
+        flStagingFolders.push(newFolder);
+    }
+    flActiveStagingFolderId = sId;
+    flRenderStagingTree();
+}
 
 async function flAddDataToStaging(targetFolderId, dataItem) {
-    const targetFolder = flStagingFolders.find(f => f.id === targetFolderId); if (!targetFolder) return;
-    
+    let targetFolder = null;
+    function findFolderRecursive(arr) {
+        const f = arr.find(item => item.id === targetFolderId && item.isDir);
+        if (f) { targetFolder = f; return; }
+        for (const item of arr) {
+            if (item.isDir && item.children) {
+                findFolderRecursive(item.children);
+                if (targetFolder) return;
+            }
+        }
+    }
+    findFolderRecursive(flStagingFolders);
+    if (!targetFolder) return;
+
     if (dataItem.isDir) {
-        if (pywebview && pywebview.api && pywebview.api.get_full_tree_recursive) {
-            const res = await pywebview.api.get_full_tree_recursive(dataItem.path);
+        if (pywebview && pywebview.api && pywebview.api.get_local_tree_recursive) {
+            const res = await pywebview.api.get_local_tree_recursive(dataItem.path);
             if (res && res.status === 'success') {
-                res.groups.forEach((group, idx) => {
-                    const newGroupId = 'sfolder_' + Date.now() + '_' + idx;
-                    flStagingFolders.push({ id: newGroupId, name: group.name, children: group.files.map(f => ({ path: f.path, name: f.name })) });
-                });
+                targetFolder.children.push(res.tree);
                 if (res.truncated) {
-                    alert("항목이 너무 많아 일부(최대 5000개)만 스테이징 폴더에 추가되었습니다.");
+                    alert("항목이 너무 많아 일부(최대 2000개)만 스테이징 폴더에 추가되었습니다.");
                 }
             }
         }
     } else {
-        targetFolder.children.push({ path: dataItem.path, name: dataItem.name });
+        if (!targetFolder.children.some(c => c.path === dataItem.path)) {
+            targetFolder.children.push({
+                id: 'sfile_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+                name: dataItem.name,
+                isDir: false,
+                path: dataItem.path,
+                size: dataItem.size || '',
+                mtime: dataItem.mtime || ''
+            });
+        }
     }
 }
 
-async function flHandleDropToStaging(targetFolderId, dataTransfer) {
-    try { 
-        const dataStr = dataTransfer.getData('text/plain'); if (!dataStr) return; 
-        const dataArr = JSON.parse(dataStr); 
+async function flHandleDropToStagingFolder(targetFolderId, dataTransfer) {
+    try {
+        const dataStr = dataTransfer.getData('text/plain'); if (!dataStr) return;
+        const dataArr = JSON.parse(dataStr);
         const items = Array.isArray(dataArr) ? dataArr : [dataArr];
 
         showLoading("파일/폴더 병합 중...");
         for (const data of items) {
-            if (data.source_tree === 'staging' && data.source_folder_id) {
-                if (data.source_folder_id === targetFolderId) continue; 
-                const srcFolder = flStagingFolders.find(f => f.id === data.source_folder_id);
-                if (srcFolder) {
-                    const idx = srcFolder.children.findIndex(c => c.path === data.path && c.name === data.name);
+            if (data.source_tree === 'staging') {
+                if (data.id === targetFolderId) continue;
+                
+                let movedNode = null;
+                function removeRecursive(arr) {
+                    const idx = arr.findIndex(item => item.id === data.id);
                     if (idx > -1) {
-                        const [movedItem] = srcFolder.children.splice(idx, 1);
-                        const targetFolder = flStagingFolders.find(f => f.id === targetFolderId);
-                        if(targetFolder) targetFolder.children.push(movedItem);
+                        [movedNode] = arr.splice(idx, 1);
+                        return true;
+                    }
+                    for (const item of arr) {
+                        if (item.isDir && item.children) {
+                            if (removeRecursive(item.children)) return true;
+                        }
+                    }
+                    return false;
+                }
+                removeRecursive(flStagingFolders);
+
+                if (movedNode) {
+                    let targetFolder = null;
+                    function findFolderRecursive(arr) {
+                        const f = arr.find(item => item.id === targetFolderId && item.isDir);
+                        if (f) { targetFolder = f; return; }
+                        for (const item of arr) {
+                            if (item.isDir && item.children) {
+                                findFolderRecursive(item.children);
+                                if (targetFolder) return;
+                            }
+                        }
+                    }
+                    findFolderRecursive(flStagingFolders);
+                    if (targetFolder) {
+                        targetFolder.children.push(movedNode);
+                    } else {
+                        flStagingFolders.push(movedNode);
                     }
                 }
             } else if (data.path) {
@@ -505,8 +697,52 @@ async function flHandleDropToStaging(targetFolderId, dataTransfer) {
     } catch (e) { console.error(e); hideLoading(); }
 }
 
+function flGetFilteredStagingTree() {
+    const checkedBoxes = Array.from(document.querySelectorAll('.fl-staging-tree .fl-tree-checkbox:checked'));
+    if (checkedBoxes.length === 0) {
+        return JSON.parse(JSON.stringify(flStagingFolders));
+    }
+
+    const checkedIds = new Set(checkedBoxes.map(cb => cb.closest('.fl-node-wrapper').dataset.id));
+
+    function filterNode(node) {
+        if (checkedIds.has(node.id)) {
+            return JSON.parse(JSON.stringify(node));
+        }
+
+        if (node.isDir && node.children) {
+            const filteredChildren = [];
+            for (const child of node.children) {
+                const fChild = filterNode(child);
+                if (fChild) {
+                    filteredChildren.push(fChild);
+                }
+            }
+            if (filteredChildren.length > 0) {
+                const cloned = JSON.parse(JSON.stringify(node));
+                cloned.children = filteredChildren;
+                return cloned;
+            }
+        }
+        return null;
+    }
+
+    const result = [];
+    for (const rootNode of flStagingFolders) {
+        const fRoot = filterNode(rootNode);
+        if (fRoot) {
+            result.push(fRoot);
+        }
+    }
+    return result;
+}
+
 async function flCommitStagingLocal() {
-    if (flStagingFolders.every(f => f.children.length === 0)) { alert("로컬에 동기화할 파일이 스테이징 작업 공간에 없습니다."); return; }
+    const filteredTree = flGetFilteredStagingTree();
+    if (filteredTree.length === 0) { 
+        alert("로컬에 동기화할 파일/폴더가 스테이징 작업 공간에 없습니다."); 
+        return; 
+    }
     
     if (pywebview && pywebview.api && pywebview.api.choose_dir) {
         const targetDir = await pywebview.api.choose_dir();
@@ -515,7 +751,7 @@ async function flCommitStagingLocal() {
         if (!confirm(`현재 스테이징된 폴더 구조와 파일들을 다음 로컬 드라이브 경로에 일괄 복사(생성)하시겠습니까?\n목적지: ${targetDir}`)) return;
 
         showLoading("실제 로컬 디렉토리 동기화 생성 중...");
-        await pywebview.api.fl_commit_real_staging(targetDir, flStagingFolders);
+        await pywebview.api.fl_commit_real_staging(targetDir, filteredTree);
         hideLoading();
     } else {
         alert("백엔드 API 연결 대기 중입니다.");
@@ -523,36 +759,26 @@ async function flCommitStagingLocal() {
 }
 
 async function flMultiDeleteStaging() {
-    const checkedItems = document.querySelectorAll('.fl-staging-tree .fl-tree-checkbox:checked');
-    if (checkedItems.length === 0) return;
+    const checkedBoxes = Array.from(document.querySelectorAll('.fl-staging-tree .fl-tree-checkbox:checked'));
+    if (checkedBoxes.length === 0) return;
     
-    checkedItems.forEach(chk => {
-        const itemEl = chk.closest('.fl-tree-item');
-        if(itemEl) {
-            const parentListCont = itemEl.parentElement;
-            const folderEl = parentListCont.previousElementSibling;
-            if (folderEl) {
-                const fid = folderEl.dataset.id;
-                const folder = flStagingFolders.find(f => f.id === fid);
-                if (folder) {
-                    const name = itemEl.querySelector('.fl-item-name').innerText;
-                    const cIdx = folder.children.findIndex(c => c.name === name);
-                    if (cIdx > -1) {
-                        folder.children.splice(cIdx, 1);
-                    }
-                }
-            }
-        } else {
-            const folderEl = chk.closest('.group-folder');
-            if(folderEl) {
-                const fid = folderEl.dataset.id;
-                const fIdx = flStagingFolders.findIndex(f => f.id === fid);
-                if(fIdx > -1) flStagingFolders.splice(fIdx, 1);
+    const checkedIds = new Set(checkedBoxes.map(cb => cb.closest('.fl-node-wrapper').dataset.id));
+    
+    function removeCheckedNodes(arr) {
+        for (let i = arr.length - 1; i >= 0; i--) {
+            const item = arr[i];
+            if (checkedIds.has(item.id)) {
+                arr.splice(i, 1);
+            } else if (item.isDir && item.children) {
+                removeCheckedNodes(item.children);
             }
         }
-    });
-    if(flStagingFolders.length === 0) flAddStagingFolder();
+    }
+    removeCheckedNodes(flStagingFolders);
+    
+    if (flStagingFolders.length === 0) flAddStagingFolder();
     flRenderStagingTree();
+    flCheckMultiDelState();
 }
 
 function flShowExportStagingDialog() {
@@ -929,11 +1155,45 @@ async function flExecuteContextMenu(action) {
         if (pywebview && pywebview.api && pywebview.api.fl_real_mkdir) {
             const success = await pywebview.api.fl_real_mkdir(flContextMenuTarget.path, folderName.trim());
             if (success) {
-                if (flRealRootPath) flLoadRealTree(flRealRootPath);
-                if (flCurrentLocalRoot) flLoadLocalTree(flCurrentLocalRoot);
+                await flRefreshDirectoryNode(flContextMenuTarget.path);
             }
         }
         hideLoading();
+    }
+}
+
+async function flRefreshDirectoryNode(parentPath) {
+    const items = document.querySelectorAll(`.fl-tree-item[data-path="${parentPath}"]`);
+    for (const item of items) {
+        const wrapper = item.parentElement;
+        const childContainer = wrapper.querySelector('.fl-tree-children');
+        const toggleBtn = item.querySelector('.fl-toggle-btn');
+        const icon = item.querySelector('.fl-item-icon');
+        const treeType = item.dataset.treetype;
+
+        toggleBtn.innerText = '▼';
+        icon.innerText = '📂';
+        childContainer.style.display = 'block';
+
+        const currentPadding = parseInt(item.style.paddingLeft) || 8;
+        const depth = Math.round((currentPadding - 8) / 16) + 1;
+
+        childContainer.innerHTML = `<div style="padding-left:${depth * 16 + 8}px; color:var(--text-secondary); font-size:11px;">로딩 중...</div>`;
+        try {
+            if (pywebview && pywebview.api && pywebview.api.get_local_tree) {
+                const res = await pywebview.api.get_local_tree(parentPath);
+                childContainer.innerHTML = '';
+                if (res.tree && res.tree.length > 0) {
+                    res.tree.forEach(childNode => {
+                        childContainer.appendChild(flCreateTreeNode(childNode, depth, treeType));
+                    });
+                } else {
+                    childContainer.innerHTML = `<div style="padding-left:${depth * 16 + 8}px; color:var(--text-secondary); font-size:11px;">(비어 있음)</div>`;
+                }
+            }
+        } catch (err) {
+            childContainer.innerHTML = `<div style="padding-left:${depth * 16 + 8}px; color:var(--danger-red); font-size:11px;">로드 실패</div>`;
+        }
     }
 }
 
@@ -1021,15 +1281,16 @@ function flInitSplitter() {
 
 function resetFolderLabWorkspace() {
     if(!confirm("구성 중인 스테이징 폴더 구조를 초기화하시겠습니까?")) return;
-    flStagingFolders = [{ id: 'sfolder_1', name: '스테이징 폴더 1', children: [] }]; flActiveStagingFolderId = 'sfolder_1'; flRenderStagingTree();
+    flStagingFolders = [{ id: 'sfolder_1', name: '스테이징 폴더 1', isDir: true, children: [] }]; flActiveStagingFolderId = 'sfolder_1'; flRenderStagingTree();
 }
 
 async function flExportStagingZip() {
     if (flStagingFolders.length === 0) { alert("내보낼 스테이징 폴더가 없습니다."); return; }
     if (pywebview && pywebview.api && pywebview.api.export_virtual_folder) { 
         showLoading("스테이징 폴더 ZIP 패키징 중..."); 
-        // export_virtual_folder handles flat [{name, children}] correctly
-        await pywebview.api.export_virtual_folder(flStagingFolders); 
+        const filteredTree = flGetFilteredStagingTree();
+        if (filteredTree.length === 0) { alert("선택된 파일/폴더가 없습니다."); hideLoading(); return; }
+        await pywebview.api.export_virtual_folder(filteredTree); 
         hideLoading(); 
     } else { alert("API 연결 대기 중입니다."); }
 }
