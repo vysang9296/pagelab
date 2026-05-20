@@ -244,6 +244,12 @@ function flCreateTreeNode(node, depth, treeType = 'local') {
             e.preventDefault(); e.stopPropagation(); item.style.backgroundColor = ''; 
             flHandleDropToReal(node.path, e.dataTransfer); 
         };
+        childContainer.ondragover = (e) => { e.preventDefault(); item.style.backgroundColor = '#e8f0fe'; };
+        childContainer.ondragleave = (e) => { item.style.backgroundColor = ''; };
+        childContainer.ondrop = (e) => { 
+            e.preventDefault(); e.stopPropagation(); item.style.backgroundColor = ''; 
+            flHandleDropToReal(node.path, e.dataTransfer); 
+        };
     }
 
     item.onclick = (e) => {
@@ -269,8 +275,9 @@ function flToggleAllCheckboxes(treeType, checkState) {
 }
 
 function flCheckMultiDelState() {
-    const checked = document.querySelectorAll('.fl-staging-tree .fl-tree-checkbox:checked');
-    const delBtn = document.getElementById('fl-staging-multi-del-btn');
+    const targetType = flRightMode; // 'staging' or 'real'
+    const checked = document.querySelectorAll(`.fl-${targetType}-tree .fl-tree-checkbox:checked`);
+    const delBtn = document.getElementById('fl-multi-del-btn');
     if(delBtn) delBtn.style.display = checked.length > 0 ? 'inline-block' : 'none';
 }
 document.addEventListener('change', (e) => { if(e.target.classList.contains('fl-tree-checkbox')) flCheckMultiDelState(); });
@@ -293,6 +300,7 @@ function flSwitchRightMode(mode) {
         treeStaging.style.display = 'none'; treeReal.style.display = 'block';
         if (flRealRootPath) flLoadRealTree(flRealRootPath);
     }
+    flCheckMultiDelState();
 }
 
 async function flTransferSelected(direction) {
@@ -355,7 +363,14 @@ function flRenderStagingTree() {
         const badge = document.createElement('span'); badge.className = 'badge'; badge.innerText = folder.children.length;
 
         folderEl.appendChild(chk); folderEl.appendChild(icon); folderEl.appendChild(input); folderEl.appendChild(editBtn); folderEl.appendChild(badge);
-        folderEl.onclick = () => {
+        
+        folderEl.onclick = (e) => {
+            if (e.target === input || e.target === editBtn) return;
+            if (e.target !== chk) {
+                chk.checked = !chk.checked;
+            }
+            flCheckMultiDelState();
+            
             flActiveStagingFolderId = folder.id;
             document.querySelectorAll('.group-folder').forEach(el => {
                 el.classList.toggle('active', el.dataset.id === folder.id);
@@ -370,24 +385,63 @@ function flRenderStagingTree() {
 
         if (folder.children.length > 0) {
             const childCont = document.createElement('div'); childCont.style.paddingLeft = '24px';
+            
+            childCont.ondragover = (e) => { e.preventDefault(); folderEl.classList.add('drag-over'); };
+            childCont.ondragleave = (e) => { folderEl.classList.remove('drag-over'); };
+            childCont.ondrop = (e) => { 
+                e.preventDefault(); e.stopPropagation(); 
+                folderEl.classList.remove('drag-over'); 
+                flHandleDropToStaging(folder.id, e.dataTransfer); 
+            };
+
             folder.children.forEach((child, childIdx) => {
                 const childEl = document.createElement('div'); childEl.className = 'fl-tree-item'; childEl.style.background = '#fff';
                 childEl.draggable = true;
                 
-                // Drag start for internal reordering
-                childEl.ondragstart = (e) => {
-                    e.dataTransfer.setData('text/plain', JSON.stringify({
-                        type: 'staging_file', path: child.path, name: child.name,
-                        source_folder_id: folder.id, child_idx: childIdx, source_tree: 'staging'
-                    }));
-                };
+                childEl.dataset.path = child.path;
+                childEl.dataset.name = child.name;
+                childEl.dataset.isdir = 'false';
+                childEl.dataset.treetype = 'staging';
 
                 const cChk = document.createElement('input'); cChk.type = 'checkbox'; cChk.className = 'fl-tree-checkbox'; cChk.onclick = (e) => { e.stopPropagation(); flCheckMultiDelState(); };
                 childEl.appendChild(cChk);
                 childEl.innerHTML += `<span class="fl-item-icon">📄</span><span class="fl-item-name">${child.name}</span>`;
                 
                 const delBtn = document.createElement('button'); delBtn.className = 'file-del-btn'; delBtn.innerText = '✖'; delBtn.style.display = 'block'; delBtn.style.marginLeft = 'auto';
-                delBtn.onclick = (e) => { e.stopPropagation(); folder.children.splice(childIdx, 1); flRenderStagingTree(); }; childEl.appendChild(delBtn);
+                delBtn.onclick = (e) => { e.stopPropagation(); folder.children.splice(childIdx, 1); flRenderStagingTree(); flCheckMultiDelState(); }; childEl.appendChild(delBtn);
+                
+                childEl.onclick = (e) => {
+                    if (e.target === cChk || e.target === delBtn) return;
+                    cChk.checked = !cChk.checked;
+                    flCheckMultiDelState();
+                };
+
+                childEl.ondragstart = (e) => {
+                    if (cChk.checked) {
+                        const checkedItems = Array.from(document.querySelectorAll('.fl-staging-tree .fl-tree-item')).filter(itemEl => {
+                            const chk = itemEl.querySelector('.fl-tree-checkbox');
+                            return chk && chk.checked;
+                        }).map(itemEl => {
+                            const parentListCont = itemEl.parentElement;
+                            const fEl = parentListCont.previousElementSibling;
+                            const sourceFolderId = fEl ? fEl.dataset.id : folder.id;
+                            return {
+                                type: 'staging_file',
+                                path: itemEl.dataset.path,
+                                name: itemEl.dataset.name,
+                                source_folder_id: sourceFolderId,
+                                source_tree: 'staging'
+                            };
+                        });
+                        e.dataTransfer.setData('text/plain', JSON.stringify(checkedItems));
+                    } else {
+                        e.dataTransfer.setData('text/plain', JSON.stringify([{
+                            type: 'staging_file', path: child.path, name: child.name,
+                            source_folder_id: folder.id, child_idx: childIdx, source_tree: 'staging'
+                        }]));
+                    }
+                };
+
                 childCont.appendChild(childEl);
             });
             container.appendChild(childCont);
@@ -429,10 +483,13 @@ async function flHandleDropToStaging(targetFolderId, dataTransfer) {
             if (data.source_tree === 'staging' && data.source_folder_id) {
                 if (data.source_folder_id === targetFolderId) continue; 
                 const srcFolder = flStagingFolders.find(f => f.id === data.source_folder_id);
-                if (srcFolder && data.child_idx !== undefined) {
-                    const [movedItem] = srcFolder.children.splice(data.child_idx, 1);
-                    const targetFolder = flStagingFolders.find(f => f.id === targetFolderId);
-                    if(targetFolder) targetFolder.children.push(movedItem);
+                if (srcFolder) {
+                    const idx = srcFolder.children.findIndex(c => c.path === data.path && c.name === data.name);
+                    if (idx > -1) {
+                        const [movedItem] = srcFolder.children.splice(idx, 1);
+                        const targetFolder = flStagingFolders.find(f => f.id === targetFolderId);
+                        if(targetFolder) targetFolder.children.push(movedItem);
+                    }
                 }
             } else if (data.path) {
                 await flAddDataToStaging(targetFolderId, data);
@@ -450,7 +507,7 @@ async function flCommitStagingLocal() {
         const targetDir = await pywebview.api.choose_dir();
         if(!targetDir) return; // Cancelled
         
-        if (!confirm(`현재 스테이징된 폴더 구조와 파일들을 다음 로컬 드라이브 경로에 일괄 복사(생성)하시겠습니까?\\n목적지: ${targetDir}`)) return;
+        if (!confirm(`현재 스테이징된 폴더 구조와 파일들을 다음 로컬 드라이브 경로에 일괄 복사(생성)하시겠습니까?\n목적지: ${targetDir}`)) return;
 
         showLoading("실제 로컬 디렉토리 동기화 생성 중...");
         await pywebview.api.fl_commit_real_staging(targetDir, flStagingFolders);
@@ -463,18 +520,151 @@ async function flCommitStagingLocal() {
 async function flMultiDeleteStaging() {
     const checkedItems = document.querySelectorAll('.fl-staging-tree .fl-tree-checkbox:checked');
     if (checkedItems.length === 0) return;
+    
     checkedItems.forEach(chk => {
         const itemEl = chk.closest('.fl-tree-item');
-        if(itemEl) itemEl.querySelector('.file-del-btn').click();
-        const folderEl = chk.closest('.group-folder');
-        if(folderEl && !itemEl) {
-            const fid = folderEl.dataset.id;
-            const fIdx = flStagingFolders.findIndex(f => f.id === fid);
-            if(fIdx > -1) flStagingFolders.splice(fIdx, 1);
+        if(itemEl) {
+            const parentListCont = itemEl.parentElement;
+            const folderEl = parentListCont.previousElementSibling;
+            if (folderEl) {
+                const fid = folderEl.dataset.id;
+                const folder = flStagingFolders.find(f => f.id === fid);
+                if (folder) {
+                    const name = itemEl.querySelector('.fl-item-name').innerText;
+                    const cIdx = folder.children.findIndex(c => c.name === name);
+                    if (cIdx > -1) {
+                        folder.children.splice(cIdx, 1);
+                    }
+                }
+            }
+        } else {
+            const folderEl = chk.closest('.group-folder');
+            if(folderEl) {
+                const fid = folderEl.dataset.id;
+                const fIdx = flStagingFolders.findIndex(f => f.id === fid);
+                if(fIdx > -1) flStagingFolders.splice(fIdx, 1);
+            }
         }
     });
     if(flStagingFolders.length === 0) flAddStagingFolder();
     flRenderStagingTree();
+}
+
+function flShowExportStagingDialog() {
+    if (flStagingFolders.every(f => f.children.length === 0)) { alert("내보낼 파일이 스테이징 폴더에 없습니다."); return; }
+    
+    const modal = document.createElement('div');
+    modal.style.position = 'fixed';
+    modal.style.top = '0';
+    modal.style.left = '0';
+    modal.style.width = '100%';
+    modal.style.height = '100%';
+    modal.style.backgroundColor = 'rgba(0,0,0,0.4)';
+    modal.style.display = 'flex';
+    modal.style.alignItems = 'center';
+    modal.style.justifyContent = 'center';
+    modal.style.zIndex = '9999';
+
+    const dialog = document.createElement('div');
+    dialog.style.background = '#fff';
+    dialog.style.padding = '24px';
+    dialog.style.borderRadius = '8px';
+    dialog.style.boxShadow = '0 4px 16px rgba(0,0,0,0.2)';
+    dialog.style.width = '420px';
+    dialog.style.textAlign = 'center';
+    dialog.style.fontFamily = 'system-ui, sans-serif';
+
+    const title = document.createElement('h3');
+    title.innerText = '가상 스테이징 내보내기';
+    title.style.margin = '0 0 12px 0';
+    title.style.fontSize = '16px';
+    title.style.color = '#333';
+
+    const desc = document.createElement('p');
+    desc.innerText = '구성한 가상 폴더 구조를 어떤 형식으로 내보내시겠습니까?';
+    desc.style.fontSize = '13px';
+    desc.style.color = '#666';
+    desc.style.margin = '0 0 20px 0';
+
+    const btnContainer = document.createElement('div');
+    btnContainer.style.display = 'flex';
+    btnContainer.style.gap = '8px';
+    btnContainer.style.justifyContent = 'center';
+
+    const zipBtn = document.createElement('button');
+    zipBtn.innerText = 'ZIP 압축파일';
+    zipBtn.style.padding = '8px 16px';
+    zipBtn.style.border = 'none';
+    zipBtn.style.background = '#1a73e8';
+    zipBtn.style.color = '#fff';
+    zipBtn.style.borderRadius = '4px';
+    zipBtn.style.cursor = 'pointer';
+    zipBtn.style.fontWeight = 'bold';
+    zipBtn.onclick = () => {
+        document.body.removeChild(modal);
+        flExportStagingZip();
+    };
+
+    const folderBtn = document.createElement('button');
+    folderBtn.innerText = '실제 폴더 구조 (동기화)';
+    folderBtn.style.padding = '8px 16px';
+    folderBtn.style.border = '1px solid #ccc';
+    folderBtn.style.background = '#f5f5f5';
+    folderBtn.style.borderRadius = '4px';
+    folderBtn.style.cursor = 'pointer';
+    folderBtn.onclick = () => {
+        document.body.removeChild(modal);
+        flCommitStagingLocal();
+    };
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.innerText = '취소';
+    cancelBtn.style.padding = '8px 16px';
+    cancelBtn.style.border = '1px solid #ccc';
+    cancelBtn.style.background = '#fff';
+    cancelBtn.style.borderRadius = '4px';
+    cancelBtn.style.cursor = 'pointer';
+    cancelBtn.onclick = () => {
+        document.body.removeChild(modal);
+    };
+
+    btnContainer.appendChild(zipBtn);
+    btnContainer.appendChild(folderBtn);
+    btnContainer.appendChild(cancelBtn);
+    dialog.appendChild(title);
+    dialog.appendChild(desc);
+    dialog.appendChild(btnContainer);
+    modal.appendChild(dialog);
+    document.body.appendChild(modal);
+}
+
+async function flMultiDeleteSelected() {
+    if (flRightMode === 'staging') {
+        await flMultiDeleteStaging();
+    } else if (flRightMode === 'real') {
+        const checkedChks = document.querySelectorAll('.fl-real-tree .fl-tree-checkbox:checked');
+        if (checkedChks.length === 0) return;
+        
+        const paths = Array.from(checkedChks).map(chk => {
+            const itemEl = chk.closest('.fl-tree-item');
+            return itemEl ? itemEl.dataset.path : null;
+        }).filter(p => p);
+        
+        if (paths.length === 0) return;
+        
+        if (!confirm(`⚠️ 선택한 파일/폴더를 휴지통으로 보내시겠습니까?\n대상 항목 수: ${paths.length}개`)) return;
+        
+        showLoading("파일을 휴지통으로 보내는 중...");
+        if (pywebview && pywebview.api && pywebview.api.fl_real_delete_multi) {
+            const success = await pywebview.api.fl_real_delete_multi(paths);
+            if (success) {
+                flLoadRealTree(flRealRootPath); // Refresh right tree
+                if (flCurrentLocalRoot) flLoadLocalTree(flCurrentLocalRoot); // Refresh left tree
+            }
+        }
+        hideLoading();
+        flCheckMultiDelState();
+    }
 }
 
 // --- Real Local Workspace ---

@@ -13,6 +13,52 @@ def safe_filename(name: str, default="Export") -> str:
     name = name.replace('..', '_')
     return name[:100] or default
 
+def send_to_trash(path: str) -> bool:
+    """Sends a file or folder to the Windows Recycle Bin using ctypes and SHFileOperationW."""
+    import ctypes
+    from ctypes import wintypes
+
+    class SHFILEOPSTRUCTW(ctypes.Structure):
+        _fields_ = [
+            ("hwnd", wintypes.HWND),
+            ("wFunc", wintypes.UINT),
+            ("pFrom", wintypes.LPCWSTR),
+            ("pTo", wintypes.LPCWSTR),
+            ("fFlags", ctypes.c_ushort),
+            ("fAnyOperationsAborted", wintypes.BOOL),
+            ("hNameMappings", wintypes.LPVOID),
+            ("lpszProgressTitle", wintypes.LPCWSTR),
+        ]
+
+    SHFileOperationW = ctypes.windll.shell32.SHFileOperationW
+    SHFileOperationW.argtypes = [ctypes.POINTER(SHFILEOPSTRUCTW)]
+    SHFileOperationW.restype = ctypes.c_int
+
+    FO_DELETE = 3
+    FOF_ALLOWUNDO = 0x0040
+    FOF_NOCONFIRMATION = 0x0010
+    FOF_NOERRORUI = 0x0400
+    FOF_SILENT = 0x0004
+
+    abs_path = os.path.abspath(path)
+    if not os.path.exists(abs_path):
+        return False
+
+    p_from = abs_path + "\0\0"
+
+    fileop = SHFILEOPSTRUCTW()
+    fileop.hwnd = None
+    fileop.wFunc = FO_DELETE
+    fileop.pFrom = p_from
+    fileop.pTo = None
+    fileop.fFlags = FOF_ALLOWUNDO | FOF_NOCONFIRMATION | FOF_NOERRORUI | FOF_SILENT
+    fileop.fAnyOperationsAborted = False
+    fileop.hNameMappings = None
+    fileop.lpszProgressTitle = None
+
+    result = SHFileOperationW(ctypes.byref(fileop))
+    return result == 0
+
 from backend.hwp_converter import get_hwp_converter
 from backend.pdf_processor import PdfProcessor
 from backend.file_manager import get_file_manager
@@ -316,18 +362,17 @@ class Api:
             return False
 
     def fl_real_delete(self, target_path):
-        """Deletes an actual file or empty directory."""
+        """Sends an actual file or directory to the Recycle Bin."""
         try:
             if not os.path.exists(target_path): return False
-            if os.path.isdir(target_path):
-                os.rmdir(target_path)
+            if send_to_trash(target_path):
+                self.log(f"Recycled real item: {target_path}")
+                return True
             else:
-                os.remove(target_path)
-            self.log(f"Deleted real item: {target_path}")
-            return True
+                raise RuntimeError("Recycle operation failed.")
         except Exception as e:
             self.log(f"Real delete error: {e}")
-            self._window.evaluate_js(f"alert('삭제 실패 (폴더가 비어있는지 확인하세요):\\n{str(e)}')")
+            self._window.evaluate_js(f"alert('삭제 실패:\\n{str(e)}')")
             return False
 
     def fl_copy_items_real(self, src_paths, dest_dir):
@@ -361,17 +406,14 @@ class Api:
             return False
 
     def fl_real_delete_multi(self, target_paths):
-        """Deletes multiple actual files/directories."""
+        """Sends multiple actual files/directories to the Recycle Bin."""
         success_count = 0
         try:
             for p in target_paths:
                 if not os.path.exists(p): continue
-                if os.path.isdir(p):
-                    shutil.rmtree(p)
-                else:
-                    os.remove(p)
-                success_count += 1
-            self.log(f"Deleted {success_count} items multi.")
+                if send_to_trash(p):
+                    success_count += 1
+            self.log(f"Recycled {success_count} items multi.")
             return True
         except Exception as e:
             self.log(f"Multi delete error: {e}")

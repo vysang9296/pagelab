@@ -58,17 +58,15 @@ class LocalNav:
                             })
                             count += 1
                         elif entry.is_file(follow_symlinks=False):
-                            ext = os.path.splitext(entry.name)[1].lower()
-                            if ext in ALLOWED_EXTENSIONS:
-                                size_str = format_size(stat_info.st_size)
-                                tree.append({
-                                    "name": entry.name,
-                                    "isDir": False,
-                                    "path": entry.path,
-                                    "size": size_str,
-                                    "mtime": mtime_str
-                                })
-                                count += 1
+                            size_str = format_size(stat_info.st_size)
+                            tree.append({
+                                "name": entry.name,
+                                "isDir": False,
+                                "path": entry.path,
+                                "size": size_str,
+                                "mtime": mtime_str
+                            })
+                            count += 1
                     except (PermissionError, OSError):
                         continue
                         

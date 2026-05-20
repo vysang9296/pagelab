@@ -122,7 +122,6 @@
             <!-- Center Action Bar (Total Commander Style Transfer) -->
             <div class="fl-center-action-bar">
                 <button class="fl-transfer-btn" onclick="flTransferSelected('local_to_right')" title="선택 항목 오른쪽으로 전송 (Staging)">▶</button>
-                <button class="fl-transfer-btn" onclick="flTransferSelected('right_to_local')" title="선택 항목 왼쪽으로 복사 (Copy)">◀</button>
             </div>
 
             <!-- Right Panel: Dual Modes (Staging / Local) -->
@@ -137,7 +136,7 @@
                         <!-- Staging Actions -->
                         <div id="fl-staging-actions" style="display:flex; gap:8px; align-items:center;">
                             <button class="secondary-btn" style="padding:4px 8px; font-size:12px;" onclick="flAddStagingFolder()">+ 새 폴더</button>
-                            <button class="primary-btn" style="padding:4px 8px; font-size:12px;" onclick="flExportStagingZip()">📦 내보내기 (ZIP)</button>
+                            <button class="primary-btn" style="padding:4px 8px; font-size:12px;" onclick="flShowExportStagingDialog()">📦 내보내기</button>
                             <button class="fl-commit-btn" style="padding:4px 8px; font-size:12px;" onclick="flCommitStagingLocal()" title="현재 구성된 폴더/파일을 선택한 실제 로컬 폴더에 일괄 동기화(복사)합니다.">🚀 로컬 동기화 (Commit)</button>
                         </div>
 
@@ -153,7 +152,7 @@
                             <button class="secondary-btn" style="padding:2px 6px; font-size:11px;" onclick="flToggleAllCheckboxes('right', true)">☑ 전체선택</button>
                             <button class="secondary-btn" style="padding:2px 6px; font-size:11px;" onclick="flToggleAllCheckboxes('right', false)">☐ 선택해제</button>
                         </div>
-                        <button id="fl-staging-multi-del-btn" class="secondary-btn" style="padding:2px 6px; font-size:11px; color:var(--danger-red); display:none;" onclick="flMultiDeleteStaging()">✖ 선택 단체삭제</button>
+                        <button id="fl-multi-del-btn" class="secondary-btn" style="padding:2px 6px; font-size:11px; color:var(--danger-red); display:none;" onclick="flMultiDeleteSelected()">✖ 선택 단체삭제</button>
                     </div>
                 </div>
 
