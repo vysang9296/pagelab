@@ -137,7 +137,6 @@
                         <div id="fl-staging-actions" style="display:flex; gap:8px; align-items:center;">
                             <button class="secondary-btn" style="padding:4px 8px; font-size:12px;" onclick="flAddStagingFolder()">+ 새 폴더</button>
                             <button class="primary-btn" style="padding:4px 8px; font-size:12px;" onclick="flShowExportStagingDialog()">📦 내보내기</button>
-                            <button class="fl-commit-btn" style="padding:4px 8px; font-size:12px;" onclick="flCommitStagingLocal()" title="현재 구성된 폴더/파일을 선택한 실제 로컬 폴더에 일괄 동기화(복사)합니다.">🚀 로컬 동기화 (Commit)</button>
                         </div>
 
                         <!-- Real Local Actions -->
@@ -218,8 +217,9 @@
 
     <!-- Right Click Context Menu -->
     <div id="fl-context-menu" class="fl-context-menu">
-        <div class="fl-context-menu-item" onclick="flExecuteContextMenu('open_file')">🚀 파일 즉시 실행</div>
-        <div class="fl-context-menu-item" onclick="flExecuteContextMenu('open_folder')">📁 파일 위치 열기 (탐색기)</div>
+        <div id="fl-ctx-open-file" class="fl-context-menu-item" onclick="flExecuteContextMenu('open_file')">🚀 파일 즉시 실행</div>
+        <div id="fl-ctx-open-folder" class="fl-context-menu-item" onclick="flExecuteContextMenu('open_folder')">📁 폴더 위치 열기 (탐색기)</div>
+        <div id="fl-ctx-new-folder" class="fl-context-menu-item" onclick="flExecuteContextMenu('new_folder')">➕ 새 폴더 만들기</div>
     </div>
 
     <script src="app.js"></script>

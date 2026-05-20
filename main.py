@@ -323,9 +323,28 @@ class Api:
         self.log(f"Committing real staging tree to: {dest_root}")
         success_count = 0
         try:
+            # Create a Staging_Export wrapper directory.
+            # If it already exists, generate Staging_Export(1), Staging_Export(2), etc.
+            base_export_name = "Staging_Export"
+            export_root = os.path.join(dest_root, base_export_name)
+            counter = 1
+            while os.path.exists(export_root):
+                export_root = os.path.join(dest_root, f"{base_export_name}({counter})")
+                counter += 1
+            
+            os.makedirs(export_root, exist_ok=True)
+            self.log(f"[Commit] Created wrapper root: {export_root}")
+
+            import re
             for folder_node in staging_tree:
-                folder_name = folder_node.get('name', '새 폴더')
-                target_dir = os.path.join(dest_root, folder_name)
+                folder_name = folder_node.get('name', '새 폴더').strip()
+                # Split by slashes to preserve nested directories
+                parts = [ "".join([c for c in part if c not in r':*?"<>|']) for part in re.split(r'[\\/]', folder_name) ]
+                parts = [p for p in parts if p]
+                if not parts:
+                    parts = ["Folder"]
+                
+                target_dir = os.path.join(export_root, *parts)
                 os.makedirs(target_dir, exist_ok=True)
                 self.log(f"[Commit] Created/Verified dir: {target_dir}")
 
@@ -348,13 +367,14 @@ class Api:
                             shutil.copytree(src_path, dest_path, dirs_exist_ok=True, symlinks=True)
                         else:
                             shutil.copytree(src_path, dest_path, symlinks=True)
+                        success_count += 1
                     else:
                         shutil.copy2(src_path, dest_path)
-                    success_count += 1
+                        success_count += 1
                     self.log(f"[Commit] Copied: {src_path} -> {dest_path}")
 
-            self.log(f"Successfully committed {success_count} files to {dest_root}")
-            self._window.evaluate_js(f"alert('최종 커밋 성공!\\n{success_count}개의 파일이 실제 디렉토리에 동기화되었습니다.')")
+            self.log(f"Successfully committed {success_count} files/folders to {export_root}")
+            self._window.evaluate_js(f"alert('최종 커밋 성공!\\n{success_count}개의 항목이 실제 디렉토리에 동기화되었습니다.\\n위치: {export_root}')")
             return True
         except Exception as e:
             self.log(f"Commit error: {traceback.format_exc()}")

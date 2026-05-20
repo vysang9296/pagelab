@@ -259,6 +259,11 @@ function flCreateTreeNode(node, depth, treeType = 'local') {
         item.classList.add('active');
     };
 
+    item.oncontextmenu = (e) => {
+        e.preventDefault(); e.stopPropagation();
+        flShowContextMenu(e, node.path, node.isDir === true || node.isDir === 'true');
+    };
+
     return wrapper;
 }
 
@@ -551,7 +556,7 @@ async function flMultiDeleteStaging() {
 }
 
 function flShowExportStagingDialog() {
-    if (flStagingFolders.every(f => f.children.length === 0)) { alert("내보낼 파일이 스테이징 폴더에 없습니다."); return; }
+    if (flStagingFolders.length === 0) { alert("내보낼 스테이징 폴더가 없습니다."); return; }
     
     const modal = document.createElement('div');
     modal.style.position = 'fixed';
@@ -871,7 +876,7 @@ async function flSearchDocuments() {
             // Right Click Context Menu
             item.oncontextmenu = (e) => {
                 e.preventDefault(); e.stopPropagation();
-                flShowContextMenu(e, res.path);
+                flShowContextMenu(e, res.path, false);
             };
 
             const titleBox = document.createElement('div'); titleBox.className = 'fl-search-title';
@@ -884,10 +889,24 @@ async function flSearchDocuments() {
     } catch (e) { container.innerHTML = `<div style="color: var(--danger-red); font-size: 13px; text-align: center; margin-top: 30px;">검색 오류: ${e}</div>`; }
 }
 
-function flShowContextMenu(event, path) {
-    flContextMenuTarget = { path };
+function flShowContextMenu(event, path, isDir) {
+    flContextMenuTarget = { path, isDir };
     const menu = document.getElementById('fl-context-menu');
     if (!menu) return;
+
+    const openFile = document.getElementById('fl-ctx-open-file');
+    const openFolder = document.getElementById('fl-ctx-open-folder');
+    const newFolder = document.getElementById('fl-ctx-new-folder');
+
+    if (isDir) {
+        if (openFile) openFile.style.display = 'none';
+        if (openFolder) openFolder.style.display = 'block';
+        if (newFolder) newFolder.style.display = 'block';
+    } else {
+        if (openFile) openFile.style.display = 'block';
+        if (openFolder) openFolder.style.display = 'block';
+        if (newFolder) newFolder.style.display = 'none';
+    }
 
     menu.style.display = 'block';
     menu.style.left = `${event.pageX}px`;
@@ -902,6 +921,19 @@ async function flExecuteContextMenu(action) {
         if(pywebview && pywebview.api && pywebview.api.fl_open_file) await pywebview.api.fl_open_file(flContextMenuTarget.path);
     } else if (action === 'open_folder') {
         if(pywebview && pywebview.api && pywebview.api.fl_open_folder_in_explorer) await pywebview.api.fl_open_folder_in_explorer(flContextMenuTarget.path);
+    } else if (action === 'new_folder') {
+        const folderName = prompt("생성할 새 폴더명을 입력하세요:");
+        if (!folderName || !folderName.trim()) return;
+        
+        showLoading("새 폴더 생성 중...");
+        if (pywebview && pywebview.api && pywebview.api.fl_real_mkdir) {
+            const success = await pywebview.api.fl_real_mkdir(flContextMenuTarget.path, folderName.trim());
+            if (success) {
+                if (flRealRootPath) flLoadRealTree(flRealRootPath);
+                if (flCurrentLocalRoot) flLoadLocalTree(flCurrentLocalRoot);
+            }
+        }
+        hideLoading();
     }
 }
 
@@ -993,7 +1025,7 @@ function resetFolderLabWorkspace() {
 }
 
 async function flExportStagingZip() {
-    if (flStagingFolders.every(f => f.children.length === 0)) { alert("내보낼 파일이 스테이징 폴더에 없습니다."); return; }
+    if (flStagingFolders.length === 0) { alert("내보낼 스테이징 폴더가 없습니다."); return; }
     if (pywebview && pywebview.api && pywebview.api.export_virtual_folder) { 
         showLoading("스테이징 폴더 ZIP 패키징 중..."); 
         // export_virtual_folder handles flat [{name, children}] correctly

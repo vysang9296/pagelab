@@ -19,12 +19,16 @@ class VirtualFS:
         try:
             files_to_zip = []
 
+            import re
             # 1. Build virtual structure inside temp_dir
             for folder in virtual_folders:
                 folder_name = folder.get('name', 'Folder').strip()
-                # Clean invalid chars
-                folder_name = "".join([c for c in folder_name if c not in r'\/:*?"<>|'])
-                folder_dir = os.path.join(temp_dir, folder_name)
+                # Split by slashes to preserve nested directories
+                parts = [ "".join([c for c in part if c not in r':*?"<>|']) for part in re.split(r'[\\/]', folder_name) ]
+                parts = [p for p in parts if p]
+                if not parts:
+                    parts = ["Folder"]
+                folder_dir = os.path.join(temp_dir, *parts)
                 os.makedirs(folder_dir, exist_ok=True)
 
                 for child in folder.get('children', []):
