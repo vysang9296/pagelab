@@ -25,13 +25,21 @@
 
     <!-- Top Navigation -->
     <div class="top-nav">
-        <h1>Public Binder <span style="color:var(--text-secondary);font-weight:400;">| Page Lab</span></h1>
-        <div style="display:flex; gap:12px;">
-            <button class="secondary-btn" onclick="resetWorkspace()">초기화 (Reset)</button>
+        <div class="nav-left" style="display:flex; align-items:center; gap:24px;">
+            <h1>Public Binder</h1>
+            <div class="tabs-container" style="display:flex; gap:8px;">
+                <button class="tab-btn active" onclick="switchTab('pagelab')">Page Lab</button>
+                <button class="tab-btn" onclick="switchTab('folderlab')">Folder Lab</button>
+            </div>
+        </div>
+        <div class="nav-right" style="display:flex; gap:12px;">
+            <button id="pagelab-reset-btn" class="secondary-btn" onclick="resetWorkspace()">초기화 (Reset)</button>
+            <button id="folderlab-reset-btn" class="secondary-btn" style="display:none;" onclick="resetFolderLabWorkspace()">초기화 (Reset)</button>
         </div>
     </div>
 
-    <div class="workspace">
+    <!-- PageLab Workspace (Existing) -->
+    <div id="pagelab-workspace" class="workspace">
         <!-- Left Panel: Original Files -->
         <div class="left-panel">
             <div class="panel-header">
@@ -85,6 +93,139 @@
         </div>
     </div>
 
+    <!-- FolderLab Workspace (New 3-Pane Masterpiece) -->
+    <div id="folderlab-workspace" class="workspace" style="display: none; flex-direction: column;">
+        <!-- Top Dual Pane (Pure Explorer Trees + Center Action Bar) -->
+        <div class="dual-pane-container" style="display: flex; flex-grow: 1; overflow: hidden; height: 60%;">
+            <!-- Left Panel: Local Explorer Tree -->
+            <div class="fl-left-panel" style="width: calc(50% - 22px); display: flex; flex-direction: column; background: var(--bg-panel);">
+                <div class="panel-header" style="display:flex; flex-direction:column; gap:8px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <h3 style="margin:0; font-size:14px; color:var(--text-secondary);">로컬 탐색기 (Local)</h3>
+                            <span id="fl-local-root-label" style="font-size:11px; color:var(--primary-blue); background:#e8f0fe; padding:2px 6px; border-radius:4px; max-width:110px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">내 문서</span>
+                            <button class="secondary-btn" style="padding:4px 8px; font-size:12px;" onclick="flChangeLocalRoot()">📁 폴더 변경</button>
+                        </div>
+                        <div style="display:flex; gap:6px; align-items:center;">
+                            <button class="secondary-btn" style="padding:2px 6px; font-size:11px;" onclick="flToggleAllCheckboxes('local', true)">☑ 전체선택</button>
+                            <button class="secondary-btn" style="padding:2px 6px; font-size:11px;" onclick="flToggleAllCheckboxes('local', false)">☐ 선택해제</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="fl-local-tree" id="fl-local-tree" style="flex-grow: 1; overflow-y: auto; padding: 8px 12px;">
+                    <div style="color: var(--text-secondary); font-size: 13px; text-align: center; margin-top: 20px;">
+                        로컬 디렉토리를 불러오는 중입니다...
+                    </div>
+                </div>
+            </div>
+
+            <!-- Center Action Bar (Total Commander Style Transfer) -->
+            <div class="fl-center-action-bar">
+                <button class="fl-transfer-btn" onclick="flTransferSelected('local_to_right')" title="선택 항목 오른쪽으로 전송 (Staging)">▶</button>
+                <button class="fl-transfer-btn" onclick="flTransferSelected('right_to_local')" title="선택 항목 왼쪽으로 복사 (Copy)">◀</button>
+            </div>
+
+            <!-- Right Panel: Dual Modes (Staging / Local) -->
+            <div class="fl-right-panel" style="width: calc(50% - 22px); display: flex; flex-direction: column; background: var(--bg-main);">
+                <div class="panel-header" style="display:flex; flex-direction:column; gap:8px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
+                        <div class="fl-mode-tabs" style="display:flex; gap:4px; background:var(--bg-panel); padding:2px; border-radius:6px; border:1px solid var(--border-color);">
+                            <button id="fl-tab-staging" class="fl-mode-btn active" onclick="flSwitchRightMode('staging')" style="padding:4px 12px; border:none; background:#fff; border-radius:4px; font-size:12px; font-weight:600; color:var(--primary-blue); box-shadow:var(--shadow-sm); cursor:pointer;">가상 스테이징 작업</button>
+                            <button id="fl-tab-real" class="fl-mode-btn" onclick="flSwitchRightMode('real')" style="padding:4px 12px; border:none; background:transparent; border-radius:4px; font-size:12px; font-weight:600; color:var(--text-secondary); cursor:pointer;">실시간 로컬 작업</button>
+                        </div>
+                        
+                        <!-- Staging Actions -->
+                        <div id="fl-staging-actions" style="display:flex; gap:8px; align-items:center;">
+                            <button class="secondary-btn" style="padding:4px 8px; font-size:12px;" onclick="flAddStagingFolder()">+ 새 폴더</button>
+                            <button class="primary-btn" style="padding:4px 8px; font-size:12px;" onclick="flExportStagingZip()">📦 내보내기 (ZIP)</button>
+                            <button class="fl-commit-btn" style="padding:4px 8px; font-size:12px;" onclick="flCommitStagingLocal()" title="현재 구성된 폴더/파일을 선택한 실제 로컬 폴더에 일괄 동기화(복사)합니다.">🚀 로컬 동기화 (Commit)</button>
+                        </div>
+
+                        <!-- Real Local Actions -->
+                        <div id="fl-real-actions" style="display:none; gap:8px; align-items:center;">
+                            <span id="fl-real-root-label" style="font-size:11px; color:var(--danger-red); background:#fce8e6; padding:2px 6px; border-radius:4px; max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">로컬 폴더 미선택</span>
+                            <button class="secondary-btn" style="padding:4px 8px; font-size:12px;" onclick="flChangeRealRoot()">📁 타겟 폴더 열기</button>
+                        </div>
+                    </div>
+                    <!-- Right Checkbox Controls -->
+                    <div style="display:flex; gap:6px; align-items:center; justify-content:space-between;">
+                        <div style="display:flex; gap:6px;">
+                            <button class="secondary-btn" style="padding:2px 6px; font-size:11px;" onclick="flToggleAllCheckboxes('right', true)">☑ 전체선택</button>
+                            <button class="secondary-btn" style="padding:2px 6px; font-size:11px;" onclick="flToggleAllCheckboxes('right', false)">☐ 선택해제</button>
+                        </div>
+                        <button id="fl-staging-multi-del-btn" class="secondary-btn" style="padding:2px 6px; font-size:11px; color:var(--danger-red); display:none;" onclick="flMultiDeleteStaging()">✖ 선택 단체삭제</button>
+                    </div>
+                </div>
+
+                <!-- Staging Tree Container -->
+                <div class="fl-staging-tree" id="fl-staging-tree" style="flex-grow: 1; overflow-y: auto; padding: 8px 12px; background: #fafbfc;">
+                    <div class="empty-state" style="position:static; transform:none; margin-top:40px;">
+                        <h2>스테이징 폴더 구성</h2>
+                        <p>좌측 탐색기나 하단 검색 결과를 드래그 앤 드롭하여 문서를 모으고 구조화하세요.<br>이후 <b>[ZIP 내보내기]</b> 또는 <b>[로컬 동기화]</b>를 실행할 수 있습니다.</p>
+                    </div>
+                </div>
+
+                <!-- Real Tree Container -->
+                <div class="fl-real-tree" id="fl-real-tree" style="flex-grow: 1; overflow-y: auto; padding: 8px 12px; display:none; background:#f8f9fa;">
+                    <div class="empty-state" style="position:static; transform:none; margin-top:40px;">
+                        <h2>실시간 로컬 폴더 작업</h2>
+                        <p>상단의 <b>[타겟 폴더 열기]</b>를 클릭하여 실제 작업할 디렉토리를 연결하세요.<br>이후부터 좌측 패널과의 드래그 앤 드롭 복사/이동이 커밋 대기 없이 **즉각적으로** 실제 반영됩니다.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Splitter -->
+        <div id="fl-splitter" class="fl-splitter" style="display: block;"></div>
+
+        <!-- Bottom 3rd Panel: Permanent Deep Search & Preview Drawer -->
+        <div id="fl-bottom-drawer" class="fl-bottom-drawer" style="display: flex; height: 40%; flex-direction:column;">
+            <!-- Bottom Search Header -->
+            <div class="panel-header" style="display:flex; gap:12px; align-items:center; background:var(--bg-panel); border-bottom:1px solid var(--border-color); justify-content:space-between;">
+                <div style="display:flex; align-items:center; gap:6px;">
+                    <span style="font-size:15px;">🔍</span>
+                    <h3 style="margin:0; font-size:14px; color:var(--text-secondary);">심층 문서 검색 엔진 (Deep Search)</h3>
+                    <button id="fl-index-btn" class="secondary-btn" style="padding:4px 8px; font-size:11px; margin-left:8px;" onclick="flIndexCurrentFolder()" title="현재 로컬 탐색기에서 열려있는 폴더의 문서를 검색 엔진에 수동으로 색인합니다.">🔄 현재 탐색 폴더 수동 색인</button>
+                    <button id="fl-index-cancel-btn" class="danger-btn" style="padding:4px 8px; font-size:11px; display:none;" onclick="flCancelIndex()">⏹️ 색인 취소</button>
+                    <span id="fl-index-status" class="fl-index-status"></span>
+                </div>
+                <div class="search-box" style="display:flex; flex-grow:1; max-width:50%; gap:4px;">
+                    <input type="text" id="fl-search-input" placeholder="현재 탐색 중인 폴더 내 문서 본문 심층 검색 (HWP, PDF, PPTX 등)..." style="flex-grow:1; padding:6px 12px; border:1px solid var(--border-color); border-radius:4px; font-size:13px;">
+                    <button class="secondary-btn" style="padding:6px 12px;" onclick="flSearchDocuments()">검색</button>
+                </div>
+            </div>
+
+            <!-- Search Results & Snippet Layout (Split 5:5 Symmetrical) -->
+            <div style="display:flex; flex-grow:1; overflow:hidden;">
+                <!-- Search Results List -->
+                <div id="fl-search-results-container" style="width:50%; border-right:1px solid var(--border-color); overflow-y:auto; background:#fff;">
+                    <div style="color:var(--text-secondary); font-size:13px; text-align:center; margin-top:30px;">
+                        상단에서 검색어를 입력하면 일치하는 문서 목록이 표시됩니다.
+                    </div>
+                </div>
+                <!-- Extended Snippet Preview -->
+                <div style="width:50%; padding:16px; overflow-y:auto; background:#f8f9fa; display:flex; flex-direction:column;">
+                    <div id="fl-preview-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:2px solid var(--border-color); padding-bottom:8px;">
+                        <h4 id="fl-preview-doc-title" style="margin:0; font-size:14px; color:var(--primary-blue); display:flex; align-items:center; gap:6px;">📄 문서를 선택하세요</h4>
+                        <span style="font-size:11px; color:var(--text-secondary); background:#e8f0fe; padding:2px 6px; border-radius:4px;">미리보기 (Snippet)</span>
+                    </div>
+                    <div id="fl-preview-content" style="font-size:13px; color:var(--text-primary); line-height:1.6; flex-grow:1; white-space:pre-wrap;">
+                        좌측 검색 결과에서 문서를 클릭하면, 키워드가 포함된 앞뒤 본문 문맥(최대 200단어)이 이곳에 넓게 펼쳐집니다.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Click Context Menu -->
+    <div id="fl-context-menu" class="fl-context-menu">
+        <div class="fl-context-menu-item" onclick="flExecuteContextMenu('open_file')">🚀 파일 즉시 실행</div>
+        <div class="fl-context-menu-item" onclick="flExecuteContextMenu('open_folder')">📁 파일 위치 열기 (탐색기)</div>
+    </div>
+
     <script src="app.js"></script>
+    <script src="tab_manager.js"></script>
+    <script src="folderlab.js"></script>
 </body>
 </html>
+

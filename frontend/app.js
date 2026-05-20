@@ -26,8 +26,10 @@ document.addEventListener('click', () => contextMenu.style.display = 'none');
 // -------------------------
 window.addEventListener('pywebviewready', function() {
     pywebview.api.log("Frontend JS loaded successfully");
-    addGroup(); // Provide some default groups
-    updateGroupSidebar();
+    setTimeout(() => {
+        addGroup(); // Provide some default groups
+        updateGroupSidebar();
+    }, 500); // Delay DOM/Sortable initialization to prevent WebView2 Accessibility crash on Windows
 });
 
 function showLoading(text) { document.getElementById('loading-text').innerText = text; document.getElementById('loading-overlay').style.display = 'flex'; }
