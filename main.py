@@ -282,6 +282,34 @@ class Api:
             self._window.evaluate_js(f"alert('폴더 생성 실패:\\n{str(e)}')")
             return False
 
+    def fl_real_rename(self, old_path, new_name):
+        """Renames a real file or folder on the local disk."""
+        try:
+            if not os.path.exists(old_path):
+                self._window.evaluate_js("alert('대상 파일 또는 폴더가 존재하지 않습니다.')")
+                return False
+            
+            new_name = new_name.strip()
+            if not new_name or any(c in new_name for c in r'\/:*?"<>|'):
+                self._window.evaluate_js("alert('올바르지 않은 이름이거나 허용되지 않는 문자가 포함되어 있습니다.')")
+                return False
+            
+            parent_dir = os.path.dirname(old_path)
+            new_path = os.path.join(parent_dir, new_name)
+            
+            if os.path.exists(new_path):
+                self._window.evaluate_js("alert('동일한 이름의 파일 또는 폴더가 이미 존재합니다.')")
+                return False
+            
+            os.rename(old_path, new_path)
+            self.log(f"Renamed real path: {old_path} -> {new_path}")
+            return True
+        except Exception as e:
+            self.log(f"Real rename error: {e}")
+            self._window.evaluate_js(f"alert('이름 변경 실패:\\n{str(e)}')")
+            return False
+
+
     def fl_real_copy(self, src_path, dest_dir):
         """Copies an actual file from src_path to dest_dir."""
         try:
