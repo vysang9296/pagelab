@@ -19,7 +19,11 @@ let lastClickedGroupId = null;
 
 // Context Menu
 const contextMenu = document.getElementById('context-menu');
-document.addEventListener('click', () => contextMenu.style.display = 'none');
+document.addEventListener('click', (e) => {
+    if (contextMenu && !contextMenu.contains(e.target)) {
+        contextMenu.style.display = 'none';
+    }
+}, true);
 
 // -------------------------
 // Initialization

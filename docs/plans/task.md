@@ -19,16 +19,16 @@
 
 ## Option 1 Improvements
 
-- [ ] **Task 5: HWP Parser Fallback Decompression**
-  - [ ] Step 1: Create a failing test for HWP fallback parser
-  - [ ] Step 2: Run test to verify it fails
-  - [ ] Step 3: Implement decompression and record parsing fallback in `document_parser.py`
-  - [ ] Step 4: Run the test to verify it passes
-  - [ ] Step 5: Commit changes
+- [x] **Task 5: HWP Parser Fallback Decompression**
+  - [x] Step 1: Create a failing test for HWP fallback parser
+  - [x] Step 2: Run test to verify it fails
+  - [x] Step 3: Implement decompression and record parsing fallback in `document_parser.py`
+  - [x] Step 4: Run the test to verify it passes
+  - [x] Step 5: Commit changes
 
-- [ ] **Task 6: Fix Right-Click Context Menu Dismissal**
-  - [ ] Step 1: Set up global dismissal handler and modify menu trigger logic in `folderlab.js`
-  - [ ] Step 2: Commit changes
+- [x] **Task 6: Fix Right-Click Context Menu Dismissal**
+  - [x] Step 1: Set up global dismissal handler and modify menu trigger logic in `folderlab.js`
+  - [x] Step 2: Commit changes
 
 - [ ] **Task 7: Add File Type Filter Dropdown UI**
   - [ ] Step 1: Inject select dropdown in `index.html`

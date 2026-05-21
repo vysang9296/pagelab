@@ -44,10 +44,22 @@ function flInit() {
     }
 
     // Close context menu on click outside
-    document.addEventListener('click', () => {
+    document.addEventListener('click', (e) => {
         const menu = document.getElementById('fl-context-menu');
-        if (menu) menu.style.display = 'none';
-    });
+        if (menu && !menu.contains(e.target)) {
+            menu.style.display = 'none';
+        }
+    }, true);
+
+    const stagingTreeEl = document.getElementById('fl-staging-tree');
+    if (stagingTreeEl) {
+        stagingTreeEl.addEventListener('contextmenu', (e) => {
+            if (e.target === stagingTreeEl || e.target.classList.contains('empty-state') || e.target.parentElement?.classList.contains('empty-state')) {
+                e.preventDefault(); e.stopPropagation();
+                flShowContextMenu(e, '', true, 'staging_root', null);
+            }
+        });
+    }
 }
 
 // 1. Local Explorer Tree
@@ -261,7 +273,7 @@ function flCreateTreeNode(node, depth, treeType = 'local') {
 
     item.oncontextmenu = (e) => {
         e.preventDefault(); e.stopPropagation();
-        flShowContextMenu(e, node.path, node.isDir === true || node.isDir === 'true');
+        flShowContextMenu(e, node.path, node.isDir === true || node.isDir === 'true', treeType);
     };
 
     return wrapper;
@@ -550,6 +562,11 @@ function flCreateStagingTreeNode(node, depth, parentNode = null) {
             document.querySelectorAll('.fl-staging-tree .fl-tree-item').forEach(el => el.classList.remove('active'));
             item.classList.add('active');
         }
+    };
+
+    item.oncontextmenu = (e) => {
+        e.preventDefault(); e.stopPropagation();
+        flShowContextMenu(e, node.path || '', node.isDir === true || node.isDir === 'true', 'staging', node.id);
     };
 
     return wrapper;
@@ -1115,23 +1132,51 @@ async function flSearchDocuments() {
     } catch (e) { container.innerHTML = `<div style="color: var(--danger-red); font-size: 13px; text-align: center; margin-top: 30px;">검색 오류: ${e}</div>`; }
 }
 
-function flShowContextMenu(event, path, isDir) {
-    flContextMenuTarget = { path, isDir };
+function flShowContextMenu(event, path, isDir, treeType = 'local', id = null) {
+    flContextMenuTarget = { path, isDir, treeType, id };
     const menu = document.getElementById('fl-context-menu');
     if (!menu) return;
 
     const openFile = document.getElementById('fl-ctx-open-file');
     const openFolder = document.getElementById('fl-ctx-open-folder');
     const newFolder = document.getElementById('fl-ctx-new-folder');
+    const renameItem = document.getElementById('fl-ctx-rename');
+    const exportZip = document.getElementById('fl-ctx-export-zip');
+    const exportSync = document.getElementById('fl-ctx-export-sync');
+    const deleteItem = document.getElementById('fl-ctx-delete');
 
-    if (isDir) {
-        if (openFile) openFile.style.display = 'none';
-        if (openFolder) openFolder.style.display = 'block';
+    // Reset all to none
+    [openFile, openFolder, newFolder, renameItem, exportZip, exportSync, deleteItem].forEach(el => {
+        if (el) el.style.display = 'none';
+    });
+
+    if (treeType === 'local') {
+        if (isDir) {
+            if (openFolder) openFolder.style.display = 'block';
+        } else {
+            if (openFile) openFile.style.display = 'block';
+            if (openFolder) openFolder.style.display = 'block';
+        }
+    } else if (treeType === 'real') {
+        if (isDir) {
+            if (openFolder) openFolder.style.display = 'block';
+            if (newFolder) newFolder.style.display = 'block';
+        } else {
+            if (openFile) openFile.style.display = 'block';
+            if (openFolder) openFolder.style.display = 'block';
+        }
+        if (renameItem) renameItem.style.display = 'block';
+        if (deleteItem) deleteItem.style.display = 'block';
+    } else if (treeType === 'staging') {
+        if (isDir) {
+            if (newFolder) newFolder.style.display = 'block';
+            if (exportZip) exportZip.style.display = 'block';
+            if (exportSync) exportSync.style.display = 'block';
+        }
+        if (renameItem) renameItem.style.display = 'block';
+        if (deleteItem) deleteItem.style.display = 'block';
+    } else if (treeType === 'staging_root') {
         if (newFolder) newFolder.style.display = 'block';
-    } else {
-        if (openFile) openFile.style.display = 'block';
-        if (openFolder) openFolder.style.display = 'block';
-        if (newFolder) newFolder.style.display = 'none';
     }
 
     menu.style.display = 'block';
@@ -1141,24 +1186,166 @@ function flShowContextMenu(event, path, isDir) {
 
 async function flExecuteContextMenu(action) {
     const menu = document.getElementById('fl-context-menu'); if (menu) menu.style.display = 'none';
-    if (!flContextMenuTarget || !flContextMenuTarget.path) return;
+    if (!flContextMenuTarget) return;
+
+    const { path, isDir, treeType, id } = flContextMenuTarget;
 
     if (action === 'open_file') {
-        if(pywebview && pywebview.api && pywebview.api.fl_open_file) await pywebview.api.fl_open_file(flContextMenuTarget.path);
+        if (path && pywebview && pywebview.api && pywebview.api.fl_open_file) {
+            await pywebview.api.fl_open_file(path);
+        }
     } else if (action === 'open_folder') {
-        if(pywebview && pywebview.api && pywebview.api.fl_open_folder_in_explorer) await pywebview.api.fl_open_folder_in_explorer(flContextMenuTarget.path);
+        if (path && pywebview && pywebview.api && pywebview.api.fl_open_folder_in_explorer) {
+            await pywebview.api.fl_open_folder_in_explorer(path);
+        }
     } else if (action === 'new_folder') {
-        const folderName = prompt("생성할 새 폴더명을 입력하세요:");
+        const folderName = prompt("생성할 새 폴더명을 입력하세요:", "새 폴더");
         if (!folderName || !folderName.trim()) return;
-        
-        showLoading("새 폴더 생성 중...");
-        if (pywebview && pywebview.api && pywebview.api.fl_real_mkdir) {
-            const success = await pywebview.api.fl_real_mkdir(flContextMenuTarget.path, folderName.trim());
-            if (success) {
-                await flRefreshDirectoryNode(flContextMenuTarget.path);
+        const trimmedName = folderName.trim();
+
+        if (treeType === 'real') {
+            showLoading("새 폴더 생성 중...");
+            if (pywebview && pywebview.api && pywebview.api.fl_real_mkdir) {
+                const success = await pywebview.api.fl_real_mkdir(path, trimmedName);
+                if (success) {
+                    await flRefreshDirectoryNode(path);
+                }
+            }
+            hideLoading();
+        } else if (treeType === 'staging' || treeType === 'staging_root') {
+            const sId = 'sfolder_' + Date.now();
+            const newFolder = { id: sId, name: trimmedName, isDir: true, children: [] };
+            
+            let added = false;
+            if (treeType === 'staging' && id) {
+                function addRecursive(arr) {
+                    const folder = arr.find(item => item.id === id && item.isDir);
+                    if (folder) {
+                        folder.children.push(newFolder);
+                        return true;
+                    }
+                    for (const item of arr) {
+                        if (item.isDir && item.children) {
+                            if (addRecursive(item.children)) return true;
+                        }
+                    }
+                    return false;
+                }
+                added = addRecursive(flStagingFolders);
+            }
+            
+            if (!added) {
+                flStagingFolders.push(newFolder);
+            }
+            flActiveStagingFolderId = sId;
+            flRenderStagingTree();
+        }
+    } else if (action === 'rename') {
+        if (treeType === 'real') {
+            const currentName = path.split(/[\\/]/).pop();
+            const newName = prompt("새 이름을 입력하세요:", currentName);
+            if (!newName || !newName.trim()) return;
+            const trimmedName = newName.trim();
+
+            showLoading("이름 변경 중...");
+            if (pywebview && pywebview.api && pywebview.api.fl_real_rename) {
+                const success = await pywebview.api.fl_real_rename(path, trimmedName);
+                if (success) {
+                    const parentDir = path.substring(0, path.lastIndexOf(path.includes('/') ? '/' : '\\'));
+                    if (flRealRootPath === path) {
+                        flRealRootPath = parentDir + (parentDir.endsWith('\\') || parentDir.endsWith('/') ? '' : (path.includes('/') ? '/' : '\\')) + trimmedName;
+                    }
+                    await flLoadRealTree(flRealRootPath);
+                    if (flCurrentLocalRoot) await flLoadLocalTree(flCurrentLocalRoot);
+                }
+            }
+            hideLoading();
+        } else if (treeType === 'staging' && id) {
+            let nodeToRename = null;
+            function findNodeRecursive(arr) {
+                const item = arr.find(n => n.id === id);
+                if (item) { nodeToRename = item; return; }
+                for (const n of arr) {
+                    if (n.isDir && n.children) {
+                        findNodeRecursive(n.children);
+                        if (nodeToRename) return;
+                    }
+                }
+            }
+            findNodeRecursive(flStagingFolders);
+            if (nodeToRename) {
+                const newName = prompt("새 이름을 입력하세요:", nodeToRename.name);
+                if (!newName || !newName.trim()) return;
+                nodeToRename.name = newName.trim();
+                flRenderStagingTree();
             }
         }
-        hideLoading();
+    } else if (action === 'delete') {
+        if (treeType === 'real') {
+            if (!confirm("선택한 파일/폴더를 정말 삭제하시겠습니까? (휴지통으로 전송)")) return;
+            showLoading("휴지통으로 전송 중...");
+            if (pywebview && pywebview.api && pywebview.api.fl_real_delete) {
+                const success = await pywebview.api.fl_real_delete(path);
+                if (success) {
+                    flLoadRealTree(flRealRootPath);
+                    if (flCurrentLocalRoot) flLoadLocalTree(flCurrentLocalRoot);
+                }
+            }
+            hideLoading();
+        } else if (treeType === 'staging' && id) {
+            flRemoveNodeFromStaging(id);
+        }
+    } else if (action === 'export_zip') {
+        if (treeType === 'staging' && id) {
+            let targetNode = null;
+            function findNodeRecursive(arr) {
+                const item = arr.find(n => n.id === id);
+                if (item) { targetNode = item; return; }
+                for (const n of arr) {
+                    if (n.isDir && n.children) {
+                        findNodeRecursive(n.children);
+                        if (targetNode) return;
+                    }
+                }
+            }
+            findNodeRecursive(flStagingFolders);
+            if (targetNode) {
+                showLoading("선택한 가상 폴더 ZIP 패키징 중...");
+                const clonedNode = JSON.parse(JSON.stringify(targetNode));
+                if (pywebview && pywebview.api && pywebview.api.export_virtual_folder) {
+                    await pywebview.api.export_virtual_folder([clonedNode]);
+                }
+                hideLoading();
+            }
+        }
+    } else if (action === 'export_sync') {
+        if (treeType === 'staging' && id) {
+            let targetNode = null;
+            function findNodeRecursive(arr) {
+                const item = arr.find(n => n.id === id);
+                if (item) { targetNode = item; return; }
+                for (const n of arr) {
+                    if (n.isDir && n.children) {
+                        findNodeRecursive(n.children);
+                        if (targetNode) return;
+                    }
+                }
+            }
+            findNodeRecursive(flStagingFolders);
+            if (targetNode) {
+                if (pywebview && pywebview.api && pywebview.api.choose_dir) {
+                    const targetDir = await pywebview.api.choose_dir();
+                    if (!targetDir) return;
+                    
+                    if (!confirm(`선택한 가상 폴더 [${targetNode.name}]와 그 하위 구조를 다음 로컬 경로에 복사(동기화)하시겠습니까?\n목적지: ${targetDir}`)) return;
+
+                    showLoading("선택 가상 폴더 동기화 생성 중...");
+                    const clonedNode = JSON.parse(JSON.stringify(targetNode));
+                    await pywebview.api.fl_commit_real_staging(targetDir, [clonedNode]);
+                    hideLoading();
+                }
+            }
+        }
     }
 }
 
