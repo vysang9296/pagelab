@@ -17,6 +17,18 @@ let flSearchTimeout = null;
 let flCurrentLocalRoot = null;
 let flContextMenuTarget = null; // { path, type }
 
+let flActiveFilter = 'all';
+
+function flApplyFileTypeFilter(filterValue) {
+    flActiveFilter = filterValue;
+    if (typeof flLocalTreeData !== 'undefined' && flLocalTreeData) {
+        flRenderLocalTree(flLocalTreeData);
+    }
+    if (typeof flRealTreeData !== 'undefined' && flRealTreeData) {
+        flRenderRealTree();
+    }
+}
+
 // Initialize FolderLab workspace
 function flInit() {
     console.log("FolderLab Initializing 3-Pane Masterpiece...");
@@ -114,6 +126,32 @@ function flRenderLocalTree(treeData) {
 
 // Symmetrical Tree Node Creator (Used for Local & Real Staging Trees)
 function flCreateTreeNode(node, depth, treeType = 'local') {
+    // Apply file type filtering if it is a file
+    if (treeType === 'local' || treeType === 'real') {
+        if (node.isDir === false || node.isDir === 'false') {
+            const dotIdx = node.name.lastIndexOf('.');
+            const ext = dotIdx !== -1 ? node.name.substring(dotIdx).toLowerCase() : '';
+            
+            let isMatched = false;
+            if (flActiveFilter === 'all') {
+                isMatched = true;
+            } else if (flActiveFilter === 'hwp') {
+                isMatched = (ext === '.hwp' || ext === '.hwpx');
+            } else if (flActiveFilter === 'pdf') {
+                isMatched = (ext === '.pdf');
+            } else if (flActiveFilter === 'zip') {
+                isMatched = (ext === '.zip');
+            } else if (flActiveFilter === 'docs') {
+                isMatched = ['.docx', '.xlsx', '.pptx', '.txt', '.md', '.doc', '.xls', '.ppt'].includes(ext);
+            }
+            
+            if (!isMatched) {
+                // Return empty fragment to skip rendering
+                return document.createDocumentFragment();
+            }
+        }
+    }
+
     const wrapper = document.createElement('div');
     wrapper.className = 'fl-node-wrapper';
 
