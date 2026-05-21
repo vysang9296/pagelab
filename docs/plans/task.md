@@ -30,9 +30,9 @@
   - [x] Step 1: Set up global dismissal handler and modify menu trigger logic in `folderlab.js`
   - [x] Step 2: Commit changes
 
-- [ ] **Task 7: Add File Type Filter Dropdown UI**
-  - [ ] Step 1: Inject select dropdown in `index.html`
-  - [ ] Step 2: Commit changes
+- [x] **Task 7: Add File Type Filter Dropdown UI**
+  - [x] Step 1: Inject select dropdown in `index.html`
+  - [x] Step 2: Commit changes
 
 - [ ] **Task 8: Implement File Type Filtering Logic**
   - [ ] Step 1: Declare global filter state and define helper functions in `folderlab.js`
