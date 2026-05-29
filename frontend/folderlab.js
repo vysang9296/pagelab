@@ -110,6 +110,26 @@ function flRenderLocalTreeAsync(rootPath, treeData) {
     const rootLabel = document.getElementById('fl-local-root-label');
     if(rootLabel) rootLabel.innerText = flCurrentLocalRoot;
     flRenderLocalTree(flLocalTreeData);
+
+    // Auto-indexing with safety guardrails
+    try {
+        const pathNormalized = rootPath.replace(/\\/g, '/').trim();
+        const isRoot = /^[a-zA-Z]:\/?$/.test(pathNormalized) || pathNormalized === '/';
+        const childCount = treeData ? treeData.length : 0;
+
+        if (isRoot) {
+            console.log("[FolderLab] Background indexing skipped: root drive is not auto-indexed for safety.");
+        } else if (childCount > 300) {
+            console.log("[FolderLab] Background indexing skipped: child count (" + childCount + ") exceeds 300 threshold.");
+        } else {
+            if (window.pywebview && window.pywebview.api && window.pywebview.api.fl_index_current_folder) {
+                console.log("[FolderLab] Triggering background silent indexing for: " + rootPath);
+                window.pywebview.api.fl_index_current_folder(rootPath, true);
+            }
+        }
+    } catch(err) {
+        console.error("[FolderLab] Background indexing trigger error:", err);
+    }
 }
 
 async function flChangeLocalRoot() {

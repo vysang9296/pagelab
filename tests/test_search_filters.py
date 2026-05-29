@@ -121,5 +121,40 @@ class TestSearchFilters(unittest.TestCase):
         res_all_date = self.search_engine.search("keyword", ext_filter='all', date_filter='all')
         self.assertEqual(len(res_all_date), 4)
 
+    @patch('backend.document_parser.DocumentParser.extract_text')
+    def test_silent_indexing(self, mock_extract):
+        mock_extract.return_value = "some text content"
+        
+        # Create a single test file
+        test_file = os.path.join(self.temp_dir, "test.txt")
+        with open(test_file, "w", encoding="utf-8") as f:
+            f.write("dummy")
+
+        from main import Api
+        api = Api()
+        # Direct api search engine to our temp db
+        api._search_engine = self.search_engine
+        
+        # Mock window and evaluate_js
+        mock_window = MagicMock()
+        api._window = mock_window
+        
+        # Patch Thread to execute synchronously for test predictability
+        with patch('threading.Thread') as mock_thread:
+            def run_sync(*args, **kwargs):
+                target = kwargs.get('target')
+                if target:
+                    target()
+                return MagicMock()
+            mock_thread.side_effect = run_sync
+            
+            # 1. Run with silent=True
+            api.fl_index_current_folder(self.temp_dir, silent=True)
+            mock_window.evaluate_js.assert_not_called()
+            
+            # 2. Run with silent=False (default behavior)
+            api.fl_index_current_folder(self.temp_dir, silent=False)
+            self.assertTrue(mock_window.evaluate_js.called)
+
 if __name__ == '__main__':
     unittest.main()
