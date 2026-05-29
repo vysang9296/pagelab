@@ -509,7 +509,7 @@ class Api:
     def upload_files(self):
         if not self._window: return []
         
-        file_types = ('Document Files (*.pdf;*.hwp;*.hwpx)', 'All files (*.*)')
+        file_types = ('Supported Files (*.pdf;*.hwp;*.hwpx;*.png;*.jpg;*.jpeg)', 'All files (*.*)')
         files = self._window.create_file_dialog(
             webview.OPEN_DIALOG, allow_multiple=True, file_types=file_types
         )
