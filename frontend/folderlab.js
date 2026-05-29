@@ -1177,6 +1177,9 @@ async function flSearchDocuments() {
     const container = document.getElementById('fl-search-results-container');
     const titleEl = document.getElementById('fl-preview-doc-title');
     const contentEl = document.getElementById('fl-preview-content');
+    
+    const extFilter = document.getElementById('fl-search-ext-filter')?.value || 'all';
+    const dateFilter = document.getElementById('fl-search-date-filter')?.value || 'all';
 
     if (!query) {
         container.innerHTML = '<div style="color:var(--text-secondary); font-size:13px; text-align:center; margin-top:30px;">상단에서 검색어를 입력하면 일치하는 문서 목록이 표시됩니다.</div>';
@@ -1188,7 +1191,9 @@ async function flSearchDocuments() {
 
     try {
         let results = [];
-        if (pywebview && pywebview.api && pywebview.api.search_documents) { results = await pywebview.api.search_documents(query); }
+        if (pywebview && pywebview.api && pywebview.api.search_documents) { 
+            results = await pywebview.api.search_documents(query, extFilter, dateFilter); 
+        }
 
         container.innerHTML = '';
         if (results.length === 0) { container.innerHTML = `<div style="color: var(--text-secondary); font-size: 13px; text-align: center; margin-top: 30px;">"${query}"에 대한 검색 결과가 없습니다.</div>`; return; }
