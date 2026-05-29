@@ -539,17 +539,6 @@ function flCreateStagingTreeNode(node, depth, parentNode = null) {
 
         nameSpan.appendChild(input);
         nameSpan.appendChild(editBtn);
-
-        const badge = document.createElement('span');
-        badge.className = 'badge';
-        badge.innerText = node.children ? node.children.length : 0;
-        badge.style.background = 'var(--primary-blue)';
-        badge.style.color = '#fff';
-        badge.style.padding = '1px 6px';
-        badge.style.borderRadius = '10px';
-        badge.style.fontSize = '10px';
-        badge.style.marginLeft = '8px';
-        nameSpan.appendChild(badge);
     } else {
         nameSpan.innerText = node.name;
         nameSpan.title = node.path;
