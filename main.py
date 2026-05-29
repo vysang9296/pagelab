@@ -248,12 +248,11 @@ class Api:
     def fl_is_trigram_supported(self):
         return self._search_engine.get_trigram_status()
 
-    def search_documents(self, query):
-
-        self.log(f"Searching documents for query: {query}")
+    def search_documents(self, query, ext_filter='all', date_filter='all'):
+        self.log(f"Searching documents (Query: {query}, Ext: {ext_filter}, Date: {date_filter})")
         try:
-            results = self._search_engine.search(query)
-            self.log(f"Found {len(results)} matches.")
+            results = self._search_engine.search(query, ext_filter, date_filter)
+            self.log(f"Found {len(results)} matches after filtering.")
             return results
         except Exception as e:
             self.log(f"Search API Error: {e}")

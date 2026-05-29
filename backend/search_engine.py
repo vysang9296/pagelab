@@ -114,22 +114,33 @@ class SearchEngine:
         self.cancel_flag = True
 
 
-    def search(self, query: str) -> list:
+    def search(self, query: str, ext_filter: str = 'all', date_filter: str = 'all') -> list:
         """
         Executes FTS5 match query under thread lock and returns extended highlighted snippets (200 tokens).
         """
         if not query:
             return []
 
+        # Map ext_filter to SQL LIKE filter
+        ext_clause = ""
+        if ext_filter == 'hwp':
+            ext_clause = " AND (path LIKE '%.hwp' OR path LIKE '%.hwpx' OR path LIKE '%.docx' OR path LIKE '%.doc')"
+        elif ext_filter == 'pdf':
+            ext_clause = " AND path LIKE '%.pdf'"
+        elif ext_filter == 'xls':
+            ext_clause = " AND (path LIKE '%.xlsx' OR path LIKE '%.xls' OR path LIKE '%.xlsm')"
+        elif ext_filter == 'etc':
+            ext_clause = " AND (path LIKE '%.pptx' OR path LIKE '%.ppt' OR path LIKE '%.txt' OR path LIKE '%.md')"
+
         results = []
         with self.lock:
             try:
                 with sqlite3.connect(self.db_path, timeout=10.0) as conn:
                     cursor = conn.cursor()
-                    cursor.execute("""
+                    cursor.execute(f"""
                         SELECT path, title, snippet(documents, 2, '<mark>', '</mark>', '...', 200) 
                         FROM documents 
-                        WHERE documents MATCH ? 
+                        WHERE documents MATCH ? {ext_clause}
                         LIMIT 50;
                     """, (query,))
 
@@ -146,10 +157,10 @@ class SearchEngine:
                     if clean_query:
                         with sqlite3.connect(self.db_path, timeout=10.0) as conn:
                             cursor = conn.cursor()
-                            cursor.execute("""
+                            cursor.execute(f"""
                                 SELECT path, title, snippet(documents, 2, '<mark>', '</mark>', '...', 200) 
                                 FROM documents 
-                                WHERE documents MATCH ? 
+                                WHERE documents MATCH ? {ext_clause}
                                 LIMIT 50;
                             """, (clean_query,))
                             for row in cursor.fetchall():
@@ -158,6 +169,27 @@ class SearchEngine:
                     print(f"Fallback search failed: {ex}")
             except Exception as e:
                 print(f"[SearchEngine] Search Error: {traceback.format_exc()}")
+
+        # Python-level date filtering
+        if date_filter and date_filter != 'all':
+            import time
+            cutoff = 0
+            if date_filter == 'week':
+                cutoff = time.time() - 7 * 86400
+            elif date_filter == 'month':
+                cutoff = time.time() - 30 * 86400
+            elif date_filter == 'year':
+                cutoff = time.time() - 365 * 86400
+
+            filtered_results = []
+            for res in results:
+                try:
+                    mtime = os.path.getmtime(res["path"])
+                    if mtime >= cutoff:
+                        filtered_results.append(res)
+                except Exception:
+                    pass
+            return filtered_results
 
         return results
 
