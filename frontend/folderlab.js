@@ -1216,7 +1216,9 @@ async function flSearchDocuments() {
             };
 
             const titleBox = document.createElement('div'); titleBox.className = 'fl-search-title';
-            titleBox.innerHTML = `📄 ${res.title} <span class="fl-search-path">(${res.path})</span>`;
+            const safeTitle = typeof escapeHTML === 'function' ? escapeHTML(res.title) : res.title;
+            const safePath = typeof escapeHTML === 'function' ? escapeHTML(res.path) : res.path;
+            titleBox.innerHTML = `📄 ${safeTitle} <span class="fl-search-path">(${safePath})</span>`;
             
             const snippetBox = document.createElement('div'); snippetBox.className = 'fl-search-snippet'; snippetBox.innerHTML = res.snippet;
             

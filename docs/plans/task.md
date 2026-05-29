@@ -59,12 +59,26 @@
 
 ## UI/UX Follow-up Refinements
 
-- [ ] **Task 14: Bulletproof Context Menu Dismissal**
-  - [ ] Step 1: Declare global event handlers in `app.js` and `folderlab.js` (outside `flInit`)
-  - [ ] Step 2: Bind `click`, `mousedown`, `touchstart` to close both context menus on capture phase
-- [ ] **Task 15: Align Virtual Staging Tree Columns and Metadata**
-  - [ ] Step 1: Return folder `size` and `mtime` recursively in `get_local_tree_recursive` in `main.py`
-  - [ ] Step 2: Map `dataset.size` and `dataset.mtime` in `flCreateTreeNode` and during dragging/transfers
-  - [ ] Step 3: Refactor `flCreateStagingTreeNode` to render `[ DIR ]` / `size` and `mtime` columns matching `flCreateTreeNode`
-  - [ ] Step 4: Add default generation date for manually created virtual staging folders
+- [x] **Task 14: Bulletproof Context Menu Dismissal**
+  - [x] Step 1: Declare global event handlers in `app.js` and `folderlab.js` (outside `flInit`)
+  - [x] Step 2: Bind `click`, `mousedown`, `touchstart` to close both context menus on capture phase
+- [x] **Task 15: Align Virtual Staging Tree Columns and Metadata**
+  - [x] Step 1: Return folder `size` and `mtime` recursively in `get_local_tree_recursive` in `main.py`
+  - [x] Step 2: Map `dataset.size` and `dataset.mtime` in `flCreateTreeNode` and during dragging/transfers
+  - [x] Step 3: Refactor `flCreateStagingTreeNode` to render `[ DIR ]` / `size` and `mtime` columns matching `flCreateTreeNode`
+  - [x] Step 4: Add default generation date for manually created virtual staging folders
+
+## Code Review & Optimization (New)
+
+- [x] **Task 16: Optimize Search Engine Indexing Performance**
+  - [x] Step 1: Write optimized indexing logic in `backend/search_engine.py` using memory cache of indexed paths
+  - [x] Step 2: Verify indexing functionality
+- [x] **Task 17: Escaping/Sanitization for Folder Lab Search Results**
+  - [x] Step 1: Escape title and path in search result rendering in `frontend/folderlab.js`
+  - [x] Step 2: Verify rendering
+- [x] **Task 18: Mark Tasks 14 and 15 Completed in Task Tracker**
+  - [x] Step 1: Align task status in `docs/plans/task.md` to completed
+- [x] **Task 19: In-depth Rewrite of README.md**
+  - [x] Step 1: Rewrite README.md with comprehensive descriptions and architecture details
+
 

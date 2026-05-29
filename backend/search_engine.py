@@ -61,6 +61,15 @@ class SearchEngine:
                 with sqlite3.connect(self.db_path, timeout=10.0) as conn:
                     cursor = conn.cursor()
                     
+                    # Pre-load all indexed paths to avoid individual SQL queries for each file (prevents O(N^2) behavior)
+                    indexed_paths = set()
+                    try:
+                        cursor.execute("SELECT path FROM documents")
+                        for row in cursor.fetchall():
+                            indexed_paths.add(row[0])
+                    except sqlite3.OperationalError:
+                        pass
+
                     for root, dirs, files in os.walk(folder_path):
                         if self.cancel_flag: break
                         time.sleep(0.005) 
@@ -75,10 +84,9 @@ class SearchEngine:
                             ext = os.path.splitext(file)[1].lower()
                             if ext in ALLOWED_EXTENSIONS:
                                 file_path = os.path.join(root, file)
+                                if file_path in indexed_paths:
+                                    continue
                                 try:
-                                    cursor.execute("SELECT path FROM documents WHERE path = ?", (file_path,))
-                                    if cursor.fetchone(): continue
-
                                     content = DocumentParser.extract_text(file_path)
                                     if content:
                                         cursor.execute("""
