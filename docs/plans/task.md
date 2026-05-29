@@ -57,3 +57,14 @@
   - [x] Step 2: Bold directory names in `folderlab.js` `flCreateTreeNode`
   - [x] Step 3: Align container background colors to #fafbfc in `index.html`
 
+## UI/UX Follow-up Refinements
+
+- [ ] **Task 14: Bulletproof Context Menu Dismissal**
+  - [ ] Step 1: Declare global event handlers in `app.js` and `folderlab.js` (outside `flInit`)
+  - [ ] Step 2: Bind `click`, `mousedown`, `touchstart` to close both context menus on capture phase
+- [ ] **Task 15: Align Virtual Staging Tree Columns and Metadata**
+  - [ ] Step 1: Return folder `size` and `mtime` recursively in `get_local_tree_recursive` in `main.py`
+  - [ ] Step 2: Map `dataset.size` and `dataset.mtime` in `flCreateTreeNode` and during dragging/transfers
+  - [ ] Step 3: Refactor `flCreateStagingTreeNode` to render `[ DIR ]` / `size` and `mtime` columns matching `flCreateTreeNode`
+  - [ ] Step 4: Add default generation date for manually created virtual staging folders
+

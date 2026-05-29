@@ -21,6 +21,22 @@ let flActiveFilter = 'all';
 let flExpandedLocalPaths = new Set();
 let flExpandedRealPaths = new Set();
 
+// Global Context Menu Dismissal (Unified)
+const flGlobalDismissMenus = (e) => {
+    const flMenu = document.getElementById('fl-context-menu');
+    if (flMenu && !flMenu.contains(e.target)) {
+        flMenu.style.display = 'none';
+    }
+    const plMenu = document.getElementById('context-menu');
+    if (plMenu && !plMenu.contains(e.target)) {
+        plMenu.style.display = 'none';
+    }
+};
+window.addEventListener('click', flGlobalDismissMenus, { capture: true, passive: true });
+window.addEventListener('mousedown', flGlobalDismissMenus, { capture: true, passive: true });
+window.addEventListener('touchstart', flGlobalDismissMenus, { capture: true, passive: true });
+window.addEventListener('contextmenu', flGlobalDismissMenus, { capture: true, passive: true });
+
 function flApplyFileTypeFilter(filterValue) {
     flActiveFilter = filterValue;
     if (typeof flLocalTreeData !== 'undefined' && flLocalTreeData) {
@@ -56,16 +72,6 @@ function flInit() {
             flLoadLocalTree();
         });
     }
-
-    // Close context menu on click/mousedown outside
-    const dismissMenus = (e) => {
-        const menu = document.getElementById('fl-context-menu');
-        if (menu && !menu.contains(e.target)) {
-            menu.style.display = 'none';
-        }
-    };
-    document.addEventListener('click', dismissMenus, true);
-    document.addEventListener('mousedown', dismissMenus, true);
 
     const stagingTreeEl = document.getElementById('fl-staging-tree');
     if (stagingTreeEl) {
@@ -167,6 +173,8 @@ function flCreateTreeNode(node, depth, treeType = 'local') {
     item.dataset.name = node.name;
     item.dataset.isdir = node.isDir;
     item.dataset.treetype = treeType;
+    item.dataset.size = node.size || '';
+    item.dataset.mtime = node.mtime || '';
 
     // Checkbox for Multi-select with Shift-Click & Cascading logic
     const chk = document.createElement('input');
@@ -292,6 +300,7 @@ function flCreateTreeNode(node, depth, treeType = 'local') {
                 return {
                     type: treeType === 'local' ? 'local_file' : 'real_file',
                     path: iEl.dataset.path, name: iEl.dataset.name, isDir: iEl.dataset.isdir === 'true',
+                    size: iEl.dataset.size || '', mtime: iEl.dataset.mtime || '',
                     source_tree: treeType
                 };
             });
@@ -300,6 +309,7 @@ function flCreateTreeNode(node, depth, treeType = 'local') {
             e.dataTransfer.setData('text/plain', JSON.stringify([{
                 type: treeType === 'local' ? 'local_file' : 'real_file',
                 path: node.path, name: node.name, isDir: node.isDir,
+                size: node.isDir ? '[ DIR ]' : (node.size || ''), mtime: node.mtime || '',
                 source_tree: treeType
             }]));
         }
@@ -412,7 +422,9 @@ async function flTransferSelected(direction) {
                 return {
                     path: itemEl.dataset.path,
                     name: itemEl.dataset.name,
-                    isDir: itemEl.dataset.isdir === 'true'
+                    isDir: itemEl.dataset.isdir === 'true',
+                    size: itemEl.dataset.size || '',
+                    mtime: itemEl.dataset.mtime || ''
                 };
             });
             itemsToTransfer = flFilterDescendantItems(itemsToTransfer);
@@ -509,7 +521,7 @@ function flCreateStagingTreeNode(node, depth, parentNode = null) {
         input.value = node.name;
         input.style.border = 'none';
         input.style.background = 'transparent';
-        input.style.fontWeight = 'bold';
+        input.style.fontWeight = '600';
         input.style.width = '150px';
         input.ondblclick = (e) => { e.stopPropagation(); input.classList.add('editing'); input.focus(); };
         input.onblur = () => { input.classList.remove('editing'); node.name = input.value; };
@@ -527,15 +539,7 @@ function flCreateStagingTreeNode(node, depth, parentNode = null) {
 
         nameSpan.appendChild(input);
         nameSpan.appendChild(editBtn);
-    } else {
-        nameSpan.innerText = node.name;
-        nameSpan.title = node.path;
-    }
 
-    const meta = document.createElement('span');
-    meta.className = 'fl-item-meta';
-    
-    if (node.isDir) {
         const badge = document.createElement('span');
         badge.className = 'badge';
         badge.innerText = node.children ? node.children.length : 0;
@@ -545,13 +549,25 @@ function flCreateStagingTreeNode(node, depth, parentNode = null) {
         badge.style.borderRadius = '10px';
         badge.style.fontSize = '10px';
         badge.style.marginLeft = '8px';
-        meta.appendChild(badge);
+        nameSpan.appendChild(badge);
     } else {
-        const sizeSpan = document.createElement('span'); 
-        sizeSpan.className = 'fl-item-size'; 
-        sizeSpan.innerText = node.size || '';
-        meta.appendChild(sizeSpan);
+        nameSpan.innerText = node.name;
+        nameSpan.title = node.path;
     }
+
+    const meta = document.createElement('span');
+    meta.className = 'fl-item-meta';
+    
+    const sizeSpan = document.createElement('span'); 
+    sizeSpan.className = 'fl-item-size'; 
+    sizeSpan.innerText = node.isDir ? '[ DIR ]' : (node.size || '');
+    
+    const mtimeSpan = document.createElement('span'); 
+    mtimeSpan.className = 'fl-item-mtime'; 
+    mtimeSpan.innerText = node.mtime || '';
+    
+    meta.appendChild(sizeSpan);
+    meta.appendChild(mtimeSpan);
 
     const delBtn = document.createElement('button');
     delBtn.className = 'file-del-btn';
@@ -560,7 +576,7 @@ function flCreateStagingTreeNode(node, depth, parentNode = null) {
     delBtn.style.background = 'transparent';
     delBtn.style.cursor = 'pointer';
     delBtn.style.color = 'var(--danger-red)';
-    delBtn.style.marginLeft = 'auto';
+    delBtn.style.marginLeft = '8px';
     delBtn.style.fontWeight = 'bold';
     delBtn.onclick = (e) => {
         e.stopPropagation();
@@ -635,7 +651,9 @@ function flCreateStagingTreeNode(node, depth, parentNode = null) {
             id: node.id,
             name: node.name,
             isDir: node.isDir,
-            path: node.path
+            path: node.path,
+            size: node.size || '[ DIR ]',
+            mtime: node.mtime || ''
         }));
     };
 
@@ -677,7 +695,8 @@ function flRemoveNodeFromStaging(id) {
 
 function flAddStagingFolder() {
     const sId = 'sfolder_' + Date.now();
-    const newFolder = { id: sId, name: `새 폴더 ${flStagingFolders.length + 1}`, isDir: true, children: [] };
+    const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 16);
+    const newFolder = { id: sId, name: `새 폴더 ${flStagingFolders.length + 1}`, isDir: true, children: [], size: '[ DIR ]', mtime: nowStr };
     
     let added = false;
     if (flActiveStagingFolderId) {
@@ -1299,7 +1318,8 @@ async function flExecuteContextMenu(action) {
             hideLoading();
         } else if (treeType === 'staging' || treeType === 'staging_root') {
             const sId = 'sfolder_' + Date.now();
-            const newFolder = { id: sId, name: trimmedName, isDir: true, children: [] };
+            const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 16);
+            const newFolder = { id: sId, name: trimmedName, isDir: true, children: [], size: '[ DIR ]', mtime: nowStr };
             
             let added = false;
             if (treeType === 'staging' && id) {

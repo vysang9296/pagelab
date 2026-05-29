@@ -17,15 +17,21 @@ let lastClickedThumbId = null;
 let selectedGroupIds = new Set(); // For right panel multi-select
 let lastClickedGroupId = null;
 
-// Context Menu Close on Click/Mousedown
+// Context Menu Close on Click/Mousedown/Touchstart/Contextmenu (Unified)
 const dismissContextMenu = (e) => {
     const plMenu = document.getElementById('context-menu');
     if (plMenu && !plMenu.contains(e.target)) {
         plMenu.style.display = 'none';
     }
+    const flMenu = document.getElementById('fl-context-menu');
+    if (flMenu && !flMenu.contains(e.target)) {
+        flMenu.style.display = 'none';
+    }
 };
-document.addEventListener('click', dismissContextMenu, true);
-document.addEventListener('mousedown', dismissContextMenu, true);
+window.addEventListener('click', dismissContextMenu, { capture: true, passive: true });
+window.addEventListener('mousedown', dismissContextMenu, { capture: true, passive: true });
+window.addEventListener('touchstart', dismissContextMenu, { capture: true, passive: true });
+window.addEventListener('contextmenu', dismissContextMenu, { capture: true, passive: true });
 
 // -------------------------
 // Initialization

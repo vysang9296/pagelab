@@ -4,6 +4,12 @@
 let flInitialized = false;
 
 function switchTab(tabId) {
+    // Hide context menus on tab change
+    const plMenu = document.getElementById('context-menu');
+    if (plMenu) plMenu.style.display = 'none';
+    const flMenu = document.getElementById('fl-context-menu');
+    if (flMenu) flMenu.style.display = 'none';
+
     const pagelabWorkspace = document.getElementById('pagelab-workspace');
     const folderlabWorkspace = document.getElementById('folderlab-workspace');
     const pagelabResetBtn = document.getElementById('pagelab-reset-btn');

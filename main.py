@@ -161,11 +161,18 @@ class Api:
                 
             if os.path.isdir(path):
                 node_id = f"sfolder_{uuid.uuid4().hex[:8]}"
+                try:
+                    stat_info = os.stat(path)
+                    mtime_str = format_mtime(stat_info.st_mtime)
+                except:
+                    mtime_str = ""
                 node = {
                     "id": node_id,
                     "name": name,
                     "isDir": True,
                     "path": path,
+                    "size": "[ DIR ]",
+                    "mtime": mtime_str,
                     "children": []
                 }
                 try:
