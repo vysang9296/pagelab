@@ -198,9 +198,22 @@
                     <button id="fl-index-cancel-btn" class="danger-btn" style="padding:4px 8px; font-size:11px; display:none;" onclick="flCancelIndex()">⏹️ 색인 취소</button>
                     <span id="fl-index-status" class="fl-index-status"></span>
                 </div>
-                <div class="search-box" style="display:flex; flex-grow:1; max-width:50%; gap:4px;">
-                    <input type="text" id="fl-search-input" placeholder="현재 탐색 중인 폴더 내 문서 본문 심층 검색 (HWP, PDF, PPTX 등)..." style="flex-grow:1; padding:6px 12px; border:1px solid var(--border-color); border-radius:4px; font-size:13px;">
-                    <button class="secondary-btn" style="padding:6px 12px;" onclick="flSearchDocuments()">검색</button>
+                <div class="search-box" style="display:flex; flex-grow:1; max-width:55%; gap:4px; align-items:center;">
+                    <select id="fl-search-ext-filter" style="padding:6px 8px; font-size:12px; border:1px solid var(--border-color); border-radius:4px; background:#fff; cursor:pointer; height:32px; color:var(--text-primary);">
+                        <option value="all">📂 전체 포맷</option>
+                        <option value="hwp">📝 워드 문서 (HWP, DOCX)</option>
+                        <option value="pdf">📕 PDF 문서</option>
+                        <option value="xls">📊 엑셀 문서</option>
+                        <option value="etc">🗒️ 기타 문서 (PPTX, TXT)</option>
+                    </select>
+                    <select id="fl-search-date-filter" style="padding:6px 8px; font-size:12px; border:1px solid var(--border-color); border-radius:4px; background:#fff; cursor:pointer; height:32px; color:var(--text-primary);">
+                        <option value="all">📅 전체 기간</option>
+                        <option value="week">📅 최근 1주</option>
+                        <option value="month">📅 최근 1달</option>
+                        <option value="year">📅 최근 1년</option>
+                    </select>
+                    <input type="text" id="fl-search-input" placeholder="문서 본문 심층 검색..." style="flex-grow:1; padding:6px 12px; border:1px solid var(--border-color); border-radius:4px; font-size:13px; height:32px; box-sizing:border-box;">
+                    <button class="secondary-btn" style="padding:6px 12px; height:32px; display:flex; align-items:center;" onclick="flSearchDocuments()">검색</button>
                 </div>
             </div>
 
