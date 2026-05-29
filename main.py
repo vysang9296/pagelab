@@ -544,6 +544,18 @@ class Api:
                     temp_pdf_name = f"{uuid.uuid4()}.pdf"
                     pdf_path = self._fm.get_temp_path(temp_pdf_name)
                     self._converter.convert_to_pdf(file_path, pdf_path)
+                elif ext in ['.png', '.jpg', '.jpeg']:
+                    self.log(f"Converting image {file_path} to PDF...")
+                    temp_pdf_name = f"{uuid.uuid4()}.pdf"
+                    pdf_path = self._fm.get_temp_path(temp_pdf_name)
+                    
+                    import fitz
+                    img_doc = fitz.open(file_path)
+                    pdf_bytes = img_doc.convert_to_pdf()
+                    img_doc.close()
+                    
+                    with open(pdf_path, "wb") as f_pdf:
+                        f_pdf.write(pdf_bytes)
                     
                 thumbnails = PdfProcessor.extract_thumbnails(pdf_path, dpi=72)
                 
