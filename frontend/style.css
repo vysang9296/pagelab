@@ -68,7 +68,7 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-
 .edit-btn:hover { background-color: #e8eaed; color: var(--primary-blue); }
 
 .folder-icon { font-size: 16px; }
-.group-name-input { border: none; background: transparent; font-size: 13px; font-weight: 600; color: var(--text-primary); flex-grow: 1; min-width: 0; pointer-events: none; }
+.group-name-input { border: none; background: transparent; font-family: inherit; font-size: 12px; font-weight: 600; color: var(--text-primary); flex-grow: 1; min-width: 0; pointer-events: none; padding: 0; margin: 0; }
 .group-name-input.editing { pointer-events: auto; outline: none; border-bottom: 1px solid var(--primary-blue); }
 .badge { background: var(--primary-blue); color: white; border-radius: 12px; padding: 2px 8px; font-size: 11px; font-weight: bold; }
 

@@ -18,6 +18,8 @@ let flCurrentLocalRoot = null;
 let flContextMenuTarget = null; // { path, type }
 
 let flActiveFilter = 'all';
+let flExpandedLocalPaths = new Set();
+let flExpandedRealPaths = new Set();
 
 function flApplyFileTypeFilter(filterValue) {
     flActiveFilter = filterValue;
@@ -55,13 +57,15 @@ function flInit() {
         });
     }
 
-    // Close context menu on click outside
-    document.addEventListener('click', (e) => {
+    // Close context menu on click/mousedown outside
+    const dismissMenus = (e) => {
         const menu = document.getElementById('fl-context-menu');
         if (menu && !menu.contains(e.target)) {
             menu.style.display = 'none';
         }
-    }, true);
+    };
+    document.addEventListener('click', dismissMenus, true);
+    document.addEventListener('mousedown', dismissMenus, true);
 
     const stagingTreeEl = document.getElementById('fl-staging-tree');
     if (stagingTreeEl) {
@@ -206,6 +210,9 @@ function flCreateTreeNode(node, depth, treeType = 'local') {
     name.className = 'fl-item-name';
     name.innerText = node.name;
     name.title = node.path;
+    if (node.isDir) {
+        name.style.fontWeight = '600';
+    }
 
     // Metadata Columns (Size & Modified Date)
     const meta = document.createElement('span');
@@ -232,11 +239,13 @@ function flCreateTreeNode(node, depth, treeType = 'local') {
         let isLoaded = false;
 
         const toggleFunc = async (e) => {
-            e.stopPropagation();
+            if (e) e.stopPropagation();
             if (!isExpanded) {
                 toggleBtn.innerText = '▼'; icon.innerText = '📂';
                 childContainer.style.display = 'block';
                 isExpanded = true;
+                if (treeType === 'local') flExpandedLocalPaths.add(node.path);
+                if (treeType === 'real') flExpandedRealPaths.add(node.path);
 
                 if (!isLoaded) {
                     childContainer.innerHTML = `<div style="padding-left:${(depth+1)*16+8}px; color:var(--text-secondary); font-size:11px;">로딩 중...</div>`;
@@ -259,10 +268,19 @@ function flCreateTreeNode(node, depth, treeType = 'local') {
                 toggleBtn.innerText = '▶'; icon.innerText = '📁';
                 childContainer.style.display = 'none';
                 isExpanded = false;
+                if (treeType === 'local') flExpandedLocalPaths.delete(node.path);
+                if (treeType === 'real') flExpandedRealPaths.delete(node.path);
             }
         };
         toggleBtn.onclick = toggleFunc;
         icon.onclick = toggleFunc;
+
+        // Auto-expand if previously expanded
+        const shouldExpand = (treeType === 'local' && flExpandedLocalPaths.has(node.path)) ||
+                             (treeType === 'real' && flExpandedRealPaths.has(node.path));
+        if (shouldExpand) {
+            setTimeout(() => toggleFunc(), 0);
+        }
     }
 
     // Drag & Click Selection
@@ -358,6 +376,26 @@ function flSwitchRightMode(mode) {
     flCheckMultiDelState();
 }
 
+function flFilterDescendantItems(items) {
+    // Sort items by path length ascending so parent directories are first
+    items.sort((a, b) => a.path.length - b.path.length);
+    
+    const filtered = [];
+    for (const item of items) {
+        if (!item.path) continue;
+        const hasSelectedParent = filtered.some(p => {
+            if (!p.isDir) return false;
+            const sep = p.path.includes('/') ? '/' : '\\';
+            const prefix = p.path.endsWith(sep) ? p.path : p.path + sep;
+            return item.path.startsWith(prefix);
+        });
+        if (!hasSelectedParent) {
+            filtered.push(item);
+        }
+    }
+    return filtered;
+}
+
 async function flTransferSelected(direction) {
     let sourceTree = direction === 'local_to_right' ? 'local' : flRightMode;
     let checkedItems = document.querySelectorAll(`.fl-${sourceTree}-tree .fl-tree-checkbox:checked`);
@@ -369,25 +407,33 @@ async function flTransferSelected(direction) {
             const targetFolder = flStagingFolders.find(f => f.id === flActiveStagingFolderId);
             if (!targetFolder) { alert("스테이징 폴더를 선택해주세요."); return; }
             
-            showLoading("항목 전송 및 하위 구조 스캔 중...");
-            for (const chk of checkedItems) {
+            let itemsToTransfer = Array.from(checkedItems).map(chk => {
                 const itemEl = chk.closest('.fl-tree-item');
-                await flAddDataToStaging(targetFolder.id, {
-                    path: itemEl.dataset.path, name: itemEl.dataset.name, isDir: itemEl.dataset.isdir === 'true'
-                });
+                return {
+                    path: itemEl.dataset.path,
+                    name: itemEl.dataset.name,
+                    isDir: itemEl.dataset.isdir === 'true'
+                };
+            });
+            itemsToTransfer = flFilterDescendantItems(itemsToTransfer);
+
+            showLoading("항목 전송 및 하위 구조 스캔 중...");
+            for (const item of itemsToTransfer) {
+                await flAddDataToStaging(targetFolder.id, item);
             }
             hideLoading();
             flRenderStagingTree();
             flToggleAllCheckboxes('local', false);
         } else if (flRightMode === 'real') {
             if (!flRealRootPath) { alert("먼저 실제 로컬 폴더를 열어주세요."); return; }
-            const transferItems = Array.from(checkedItems).map(chk => {
+            let transferItems = Array.from(checkedItems).map(chk => {
                 const itemEl = chk.closest('.fl-tree-item');
                 return {
                     path: itemEl.dataset.path,
                     isDir: itemEl.dataset.isdir === 'true'
                 };
             });
+            transferItems = flFilterDescendantItems(transferItems);
             flExecuteRealTransfer(transferItems, flRealRootPath);
         }
     } else if (direction === 'right_to_local') {
@@ -1087,12 +1133,13 @@ async function flHandleDropToReal(destPath, dataTransfer) {
         const dataArr = JSON.parse(dataStr); 
         const items = Array.isArray(dataArr) ? dataArr : [dataArr];
         
-        const transferItems = items.map(item => ({
+        let transferItems = items.map(item => ({
             path: item.path,
             isDir: item.isDir === true || item.isDir === "true"
         })).filter(item => item.path);
         
         if (transferItems.length > 0) {
+            transferItems = flFilterDescendantItems(transferItems);
             flExecuteRealTransfer(transferItems, destPath);
         }
     } catch (e) { console.error(e); }
@@ -1399,6 +1446,9 @@ async function flRefreshDirectoryNode(parentPath) {
         toggleBtn.innerText = '▼';
         icon.innerText = '📂';
         childContainer.style.display = 'block';
+
+        if (treeType === 'local') flExpandedLocalPaths.add(parentPath);
+        if (treeType === 'real') flExpandedRealPaths.add(parentPath);
 
         const currentPadding = parseInt(item.style.paddingLeft) || 8;
         const depth = Math.round((currentPadding - 8) / 16) + 1;

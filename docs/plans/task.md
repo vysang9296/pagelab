@@ -38,3 +38,22 @@
   - [x] Step 1: Declare global filter state and define helper functions in `folderlab.js`
   - [x] Step 2: Apply filter checks during node creation
   - [x] Step 3: Commit changes
+
+## UI/UX Improvements & Bug Fixes
+
+- [x] **Task 9: Preserve Folder Expansion State (Issue 1)**
+  - [x] Step 1: Add global tracking sets `flExpandedLocalPaths` and `flExpandedRealPaths`
+  - [x] Step 2: Update folder toggle logic to update tracking sets
+  - [x] Step 3: Auto-expand nodes on render if path is in tracking sets
+- [x] **Task 10: Filter Descendant Items on Transfer (Issue 2)**
+  - [x] Step 1: Implement `flFilterDescendantItems` path utility in `folderlab.js`
+  - [x] Step 2: Filter transfers inside `flTransferSelected` and `flHandleDropToReal`
+- [x] **Task 11: Local Explorer Header Layout Fix (Issue 3)**
+  - [x] Step 1: Restructure header in `index.html` to prevent line wrapping
+- [x] **Task 12: Strengthen Context Menu Dismissal (Issue 4)**
+  - [x] Step 1: Upgrade click listener in `folderlab.js` and `app.js` with capture and mousedown
+- [x] **Task 13: Align Staging and Real Tree Styles (Issue 5)**
+  - [x] Step 1: Standardize `.group-name-input` size to 12px in `style.css`
+  - [x] Step 2: Bold directory names in `folderlab.js` `flCreateTreeNode`
+  - [x] Step 3: Align container background colors to #fafbfc in `index.html`
+

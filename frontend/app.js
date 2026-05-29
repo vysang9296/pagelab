@@ -17,13 +17,15 @@ let lastClickedThumbId = null;
 let selectedGroupIds = new Set(); // For right panel multi-select
 let lastClickedGroupId = null;
 
-// Context Menu
-const contextMenu = document.getElementById('context-menu');
-document.addEventListener('click', (e) => {
-    if (contextMenu && !contextMenu.contains(e.target)) {
-        contextMenu.style.display = 'none';
+// Context Menu Close on Click/Mousedown
+const dismissContextMenu = (e) => {
+    const plMenu = document.getElementById('context-menu');
+    if (plMenu && !plMenu.contains(e.target)) {
+        plMenu.style.display = 'none';
     }
-}, true);
+};
+document.addEventListener('click', dismissContextMenu, true);
+document.addEventListener('mousedown', dismissContextMenu, true);
 
 // -------------------------
 // Initialization
