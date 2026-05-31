@@ -150,11 +150,14 @@ class TestSearchFilters(unittest.TestCase):
             
             # 1. Run with silent=True
             api.fl_index_current_folder(self.temp_dir, silent=True)
-            mock_window.evaluate_js.assert_not_called()
+            calls = [c[0][0] for c in mock_window.evaluate_js.call_args_list]
+            self.assertTrue(any("true" in c for c in calls))
+            mock_window.reset_mock()
             
             # 2. Run with silent=False (default behavior)
             api.fl_index_current_folder(self.temp_dir, silent=False)
-            self.assertTrue(mock_window.evaluate_js.called)
+            calls = [c[0][0] for c in mock_window.evaluate_js.call_args_list]
+            self.assertTrue(any("false" in c for c in calls))
 
 if __name__ == '__main__':
     unittest.main()

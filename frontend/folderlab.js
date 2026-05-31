@@ -130,18 +130,22 @@ function flRenderLocalTreeAsync(rootPath, treeData) {
                 if (window.pywebview && window.pywebview.api && window.pywebview.api.fl_start_watchdog) {
                     console.log("[FolderLab] Auto-starting watchdog for: " + rootPath);
                     window.pywebview.api.fl_start_watchdog(rootPath);
+                    if (window.pywebview.api.fl_index_current_folder) {
+                        console.log("[FolderLab] Triggering background silent indexing for watchdog folder: " + rootPath);
+                        window.pywebview.api.fl_index_current_folder(rootPath, true);
+                    }
                 }
             }
-        }
-
-        if (isRoot) {
-            console.log("[FolderLab] Background indexing skipped: root drive is not auto-indexed for safety.");
-        } else if (childCount > 300) {
-            console.log("[FolderLab] Background indexing skipped: child count (" + childCount + ") exceeds 300 threshold.");
         } else {
-            if (window.pywebview && window.pywebview.api && window.pywebview.api.fl_index_current_folder) {
-                console.log("[FolderLab] Triggering background silent indexing for: " + rootPath);
-                window.pywebview.api.fl_index_current_folder(rootPath, true);
+            if (isRoot) {
+                console.log("[FolderLab] Background indexing skipped: root drive is not auto-indexed for safety.");
+            } else if (childCount > 300) {
+                console.log("[FolderLab] Background indexing skipped: child count (" + childCount + ") exceeds 300 threshold.");
+            } else {
+                if (window.pywebview && window.pywebview.api && window.pywebview.api.fl_index_current_folder) {
+                    console.log("[FolderLab] Triggering background silent indexing for: " + rootPath);
+                    window.pywebview.api.fl_index_current_folder(rootPath, true);
+                }
             }
         }
     } catch(err) {
@@ -1548,6 +1552,10 @@ async function flToggleWatchdog(enabled) {
             const success = await pywebview.api.fl_start_watchdog(flCurrentLocalRoot);
             if (success) {
                 console.log("[Watchdog] Started real-time monitoring for: " + flCurrentLocalRoot);
+                // Trigger background index of existing files immediately
+                if (pywebview.api.fl_index_current_folder) {
+                    pywebview.api.fl_index_current_folder(flCurrentLocalRoot, true);
+                }
             }
         }
     } else {
@@ -1588,25 +1596,29 @@ async function flCancelIndex() {
     }
 }
 
-function flUpdateIndexStatus(count, filename) {
+function flUpdateIndexStatus(count, filename, silent = false) {
+    const isSilent = silent === true || silent === 'true';
     const statusEl = document.getElementById('fl-index-status');
     if(statusEl) {
+        statusEl.style.display = 'inline-flex';
         statusEl.className = 'fl-index-status indexing';
-        statusEl.innerHTML = `<div class="spinner" style="width:10px;height:10px;border-width:1px;"></div><span>⏳ 색인 진행 중: ${count}개 본문 추출 (${filename})</span>`;
+        const prefix = isSilent ? '🔄 백그라운드 자동 색인 중' : '⏳ 수동 색인 진행 중';
+        statusEl.innerHTML = `<div class="spinner" style="width:10px;height:10px;border-width:1px;"></div><span>${prefix}: ${count}개 본문 추출 (${filename})</span>`;
     }
 }
 
-function flCompleteIndexStatus(count, wasCancelled = false, truncated = false) {
+function flCompleteIndexStatus(count, wasCancelled = false, truncated = false, silent = false) {
+    const isSilent = silent === true || silent === 'true';
     const statusEl = document.getElementById('fl-index-status');
     const cancelBtn = document.getElementById('fl-index-cancel-btn');
     if(cancelBtn) cancelBtn.style.display = 'none';
 
     if(statusEl) {
         statusEl.className = wasCancelled ? 'fl-index-status error' : 'fl-index-status success';
-        statusEl.innerHTML = wasCancelled ? `⚠️ 색인 취소됨 (총 ${count}개 등록)` : `✅ 색인 완료 (총 ${count}개 문서 등록)`;
+        statusEl.innerHTML = wasCancelled ? `⚠️ 색인 취소됨 (총 ${count}개 등록)` : `✅ 색인 완료 (총 ${count}개 자동 등록 완료)`;
         setTimeout(() => { statusEl.style.display = 'none'; }, 5000);
     }
-    if (!wasCancelled) {
+    if (!wasCancelled && !isSilent) {
         if (truncated) {
             alert(`색인 완료: ${count}개의 새 문서가 등록되었으나, 파일이 너무 많아 일부(최대 5000개)만 처리되었습니다.`);
         } else {

@@ -212,27 +212,29 @@ class Api:
             return {"status": "error", "message": str(e)}
 
     def fl_index_current_folder(self, folder_path, silent=False):
-        """Indexes folder in the background. silent=True bypasses frontend update callbacks."""
+        """Indexes folder in the background. silent=True bypasses blocking alerts but shows status."""
         if not folder_path or not os.path.exists(folder_path): return False
         self.log(f"Starting indexing for: {folder_path} (Silent: {silent})")
         
+        silent_str = "true" if silent else "false"
+
         def _progress(count, filename):
-            if not silent and self._window:
+            if self._window:
                 import json
                 safe_name = json.dumps(filename)
-                self._window.evaluate_js(f"flUpdateIndexStatus({count}, {safe_name})")
+                self._window.evaluate_js(f"flUpdateIndexStatus({count}, {safe_name}, {silent_str})")
 
         def _bg():
             try:
                 count, was_cancelled, truncated = self._search_engine.index_target_folder(folder_path, progress_callback=_progress)
                 self.log(f"Indexing finished. Indexed {count} docs. Cancelled: {was_cancelled}")
-                if not silent and self._window:
+                if self._window:
                     cancel_str = "true" if was_cancelled else "false"
                     trunc_str = "true" if truncated else "false"
-                    self._window.evaluate_js(f"flCompleteIndexStatus({count}, {cancel_str}, {trunc_str})")
+                    self._window.evaluate_js(f"flCompleteIndexStatus({count}, {cancel_str}, {trunc_str}, {silent_str})")
             except Exception as e:
                 self.log(f"Indexing error: {e}")
-                if not silent and self._window:
+                if self._window:
                     self._window.evaluate_js("flErrorIndexStatus()")
                 
         import threading
