@@ -1,3 +1,4 @@
 pywebview==5.0.5
 PyMuPDF>=1.26.7,<1.27
 pywin32==308
+watchdog==4.0.0
