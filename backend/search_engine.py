@@ -114,7 +114,7 @@ class SearchEngine:
         self.cancel_flag = True
 
 
-    def search(self, query: str, ext_filter: str = 'all', date_filter: str = 'all') -> list:
+    def search(self, query: str, ext_filter: str = 'all', date_filter: str = 'all', size_filter: str = 'all') -> list:
         """
         Executes FTS5 match query under thread lock and returns extended highlighted snippets (200 tokens).
         """
@@ -171,6 +171,7 @@ class SearchEngine:
                 print(f"[SearchEngine] Search Error: {traceback.format_exc()}")
 
         # Python-level date filtering
+        filtered_results = results
         if date_filter and date_filter != 'all':
             import time
             cutoff = 0
@@ -186,12 +187,30 @@ class SearchEngine:
                 try:
                     mtime = os.path.getmtime(res["path"])
                     if mtime >= cutoff:
-                        filtered_results.append(res)
+                          filtered_results.append(res)
                 except Exception:
                     pass
-            return filtered_results
 
-        return results
+        # Python-level size filtering
+        if size_filter and size_filter != 'all':
+            filtered_by_size = []
+            for res in filtered_results:
+                try:
+                    fsize = os.path.getsize(res["path"])
+                    mb = 1024 * 1024
+                    if size_filter == 'under_10m' and fsize < 10 * mb:
+                        filtered_by_size.append(res)
+                    elif size_filter == '10m_to_50m' and 10 * mb <= fsize < 50 * mb:
+                        filtered_by_size.append(res)
+                    elif size_filter == 'over_50m' and fsize >= 50 * mb:
+                        filtered_by_size.append(res)
+                    elif size_filter == 'over_100m' and fsize >= 100 * mb:
+                        filtered_by_size.append(res)
+                except Exception:
+                    pass
+            return filtered_by_size
+
+        return filtered_results
 
 _search_engine_instance = None
 def get_search_engine():
