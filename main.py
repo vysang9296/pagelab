@@ -258,6 +258,16 @@ class Api:
             self.log(f"Search API Error: {e}")
             return []
 
+    def fl_start_watchdog(self, folder_path):
+        if not folder_path or not os.path.exists(folder_path): return False
+        self.log(f"Starting real-time watchdog for: {folder_path}")
+        return self._search_engine.start_watchdog(folder_path)
+
+    def fl_stop_watchdog(self):
+        self.log("Stopping real-time watchdog...")
+        self._search_engine.stop_watchdog()
+        return True
+
     def export_virtual_folder(self, virtual_folders):
         if not self._window: return False
         self.log("Exporting virtual folders...")
@@ -666,6 +676,10 @@ class Api:
 
     def cleanup(self):
         self._fm.cleanup()
+        try:
+            self._search_engine.stop_watchdog()
+        except:
+            pass
         if self._converter:
             self._converter.quit()
 

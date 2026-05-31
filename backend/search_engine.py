@@ -16,6 +16,7 @@ class SearchEngine:
         self.is_indexing = False
         self.cancel_flag = False
         self.is_trigram_supported = True
+        self.observer = None
         self._init_db()
 
     def _init_db(self):
@@ -209,8 +210,98 @@ class SearchEngine:
                 except Exception:
                     pass
             return filtered_by_size
-
+ 
         return filtered_results
+
+    def start_watchdog(self, folder_path: str) -> bool:
+        from watchdog.observers import Observer
+        from watchdog.events import FileSystemEventHandler
+        
+        self.stop_watchdog()
+        
+        class WatchdogHandler(FileSystemEventHandler):
+            def __init__(self, engine):
+                self.engine = engine
+                
+            def on_created(self, event):
+                if event.is_directory: return
+                self.engine.log_watch(f"File created: {event.src_path}")
+                self.engine.index_single_file(event.src_path)
+                
+            def on_modified(self, event):
+                if event.is_directory: return
+                self.engine.log_watch(f"File modified: {event.src_path}")
+                self.engine.index_single_file(event.src_path)
+                
+            def on_deleted(self, event):
+                if event.is_directory: return
+                self.engine.log_watch(f"File deleted: {event.src_path}")
+                self.engine.remove_single_file(event.src_path)
+                
+        try:
+            self.observer = Observer()
+            handler = WatchdogHandler(self)
+            self.observer.schedule(handler, folder_path, recursive=True)
+            self.observer.start()
+            print(f"[SearchEngine] Watchdog started for: {folder_path}")
+            return True
+        except Exception as e:
+            print(f"[SearchEngine] Failed to start Watchdog: {e}")
+            self.observer = None
+            return False
+            
+    def stop_watchdog(self):
+        if self.observer is not None:
+            try:
+                self.observer.stop()
+                self.observer.join(timeout=1.0)
+                print("[SearchEngine] Watchdog stopped.")
+            except Exception as e:
+                print(f"[SearchEngine] Error stopping watchdog: {e}")
+            finally:
+                self.observer = None
+                
+    def log_watch(self, message):
+        print(f"[Watchdog] {message}")
+        
+    def index_single_file(self, file_path: str):
+        ext = os.path.splitext(file_path)[1].lower()
+        if ext not in ALLOWED_EXTENSIONS: return
+        
+        def _run():
+            with self.lock:
+                try:
+                    content = DocumentParser.extract_text(file_path)
+                    if content:
+                        with sqlite3.connect(self.db_path, timeout=5.0) as conn:
+                            cursor = conn.cursor()
+                            cursor.execute("DELETE FROM documents WHERE path = ?", (file_path,))
+                            cursor.execute("""
+                                INSERT INTO documents (path, title, content) 
+                                VALUES (?, ?, ?)
+                            """, (file_path, os.path.basename(file_path), content))
+                            conn.commit()
+                            print(f"[Watchdog] Successfully indexed: {file_path}")
+                except Exception as e:
+                    print(f"[Watchdog] Error indexing single file {file_path}: {e}")
+                    
+        import threading
+        threading.Thread(target=_run, daemon=True).start()
+        
+    def remove_single_file(self, file_path: str):
+        def _run():
+            with self.lock:
+                try:
+                    with sqlite3.connect(self.db_path, timeout=5.0) as conn:
+                        cursor = conn.cursor()
+                        cursor.execute("DELETE FROM documents WHERE path = ?", (file_path,))
+                        conn.commit()
+                        print(f"[Watchdog] Successfully removed from DB: {file_path}")
+                except Exception as e:
+                    print(f"[Watchdog] Error removing single file {file_path}: {e}")
+                    
+        import threading
+        threading.Thread(target=_run, daemon=True).start()
 
 _search_engine_instance = None
 def get_search_engine():
