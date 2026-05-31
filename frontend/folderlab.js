@@ -111,11 +111,28 @@ function flRenderLocalTreeAsync(rootPath, treeData) {
     if(rootLabel) rootLabel.innerText = flCurrentLocalRoot;
     flRenderLocalTree(flLocalTreeData);
 
-    // Auto-indexing with safety guardrails
+    // Auto-indexing and Watchdog with safety guardrails
     try {
         const pathNormalized = rootPath.replace(/\\/g, '/').trim();
         const isRoot = /^[a-zA-Z]:\/?$/.test(pathNormalized) || pathNormalized === '/';
         const childCount = treeData ? treeData.length : 0;
+
+        // Manage real-time watchdog automatically on folder switch if checked
+        const isWatchdogChecked = document.getElementById('fl-watchdog-toggle')?.checked || false;
+        if (isWatchdogChecked) {
+            if (isRoot) {
+                document.getElementById('fl-watchdog-toggle').checked = false;
+                console.log("[FolderLab] Watchdog disabled: root drive monitoring bypass.");
+                if (window.pywebview && window.pywebview.api && window.pywebview.api.fl_stop_watchdog) {
+                    window.pywebview.api.fl_stop_watchdog();
+                }
+            } else {
+                if (window.pywebview && window.pywebview.api && window.pywebview.api.fl_start_watchdog) {
+                    console.log("[FolderLab] Auto-starting watchdog for: " + rootPath);
+                    window.pywebview.api.fl_start_watchdog(rootPath);
+                }
+            }
+        }
 
         if (isRoot) {
             console.log("[FolderLab] Background indexing skipped: root drive is not auto-indexed for safety.");
@@ -1505,6 +1522,38 @@ async function flRefreshDirectoryNode(parentPath) {
             }
         } catch (err) {
             childContainer.innerHTML = `<div style="padding-left:${depth * 16 + 8}px; color:var(--danger-red); font-size:11px;">로드 실패</div>`;
+        }
+    }
+}
+
+async function flToggleWatchdog(enabled) {
+    if (!flCurrentLocalRoot) {
+        const toggle = document.getElementById('fl-watchdog-toggle');
+        if (toggle) toggle.checked = false;
+        alert("먼저 로컬 탐색기에서 감시할 폴더를 열어주세요.");
+        return;
+    }
+    
+    const pathNormalized = flCurrentLocalRoot.replace(/\\/g, '/').trim();
+    const isRoot = /^[a-zA-Z]:\/?$/.test(pathNormalized) || pathNormalized === '/';
+    
+    if (enabled) {
+        if (isRoot) {
+            const toggle = document.getElementById('fl-watchdog-toggle');
+            if (toggle) toggle.checked = false;
+            alert("⚠️ 드라이브 루트(예: C:\\)는 보안 및 시스템 과부하 예방을 위해 실시간 감시를 시작할 수 없습니다.");
+            return;
+        }
+        if (pywebview && pywebview.api && pywebview.api.fl_start_watchdog) {
+            const success = await pywebview.api.fl_start_watchdog(flCurrentLocalRoot);
+            if (success) {
+                console.log("[Watchdog] Started real-time monitoring for: " + flCurrentLocalRoot);
+            }
+        }
+    } else {
+        if (pywebview && pywebview.api && pywebview.api.fl_stop_watchdog) {
+            await pywebview.api.fl_stop_watchdog();
+            console.log("[Watchdog] Stopped monitoring.");
         }
     }
 }
