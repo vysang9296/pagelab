@@ -159,5 +159,39 @@ class TestSearchFilters(unittest.TestCase):
             calls = [c[0][0] for c in mock_window.evaluate_js.call_args_list]
             self.assertTrue(any("false" in c for c in calls))
 
+
+    @patch('backend.document_parser.DocumentParser.extract_text')
+    def test_short_query_search(self, mock_extract):
+        # Mock extractor to return Korean text with '확률추출법'
+        mock_extract.return_value = "이 방식은 확률추출법의 대표적인 예시입니다."
+        
+        # Create test file
+        test_file = os.path.join(self.temp_dir, "prob.pdf")
+        with open(test_file, "w", encoding="utf-8") as f:
+            f.write("dummy")
+            
+        # Index folder
+        count, cancelled, truncated = self.search_engine.index_target_folder(self.temp_dir)
+        self.assertEqual(count, 1)
+        
+        # Search for 5-character word '확률추출법' -> MATCH
+        res_full = self.search_engine.search("확률추출법")
+        self.assertEqual(len(res_full), 1)
+        self.assertIn("<mark>확률추출법</mark>", res_full[0]["snippet"])
+        
+        # Search for 2-character word '확률' -> LIKE fallback
+        res_short_1 = self.search_engine.search("확률")
+        self.assertEqual(len(res_short_1), 1)
+        self.assertIn("<mark>확률</mark>추출법", res_short_1[0]["snippet"])
+        
+        # Search for 2-character word '추출' -> LIKE fallback
+        res_short_2 = self.search_engine.search("추출")
+        self.assertEqual(len(res_short_2), 1)
+        self.assertIn("확률<mark>추출</mark>법", res_short_2[0]["snippet"])
+        
+        # Search for nonexistent short word '통계' -> no match
+        res_none = self.search_engine.search("통계")
+        self.assertEqual(len(res_none), 0)
+
 if __name__ == '__main__':
     unittest.main()

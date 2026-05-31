@@ -194,12 +194,7 @@
                 <div style="display:flex; align-items:center; gap:6px;">
                     <span style="font-size:15px;">🔍</span>
                     <h3 style="margin:0; font-size:14px; color:var(--text-secondary);">심층 문서 검색 엔진 (Deep Search)</h3>
-                    <button id="fl-index-btn" class="secondary-btn" style="padding:4px 8px; font-size:11px; margin-left:8px;" onclick="flIndexCurrentFolder()" title="현재 로컬 탐색기에서 열려있는 폴더의 문서를 검색 엔진에 수동으로 색인합니다.">🔄 현재 탐색 폴더 수동 색인</button>
                     <button id="fl-index-cancel-btn" class="danger-btn" style="padding:4px 8px; font-size:11px; display:none;" onclick="flCancelIndex()">⏹️ 색인 취소</button>
-                    <label style="font-size:11px; color:var(--text-secondary); display:inline-flex; align-items:center; gap:4px; margin-left:8px; cursor:pointer; user-select:none;">
-                        <input type="checkbox" id="fl-watchdog-toggle" onchange="flToggleWatchdog(this.checked)" style="cursor:pointer; vertical-align:middle; margin:0;">
-                        <span>실시간 감시 모드 (Watchdog)</span>
-                    </label>
                     <span id="fl-index-status" class="fl-index-status"></span>
                 </div>
                 <div class="search-box" style="display:flex; flex-grow:1; max-width:55%; gap:4px; align-items:center;">

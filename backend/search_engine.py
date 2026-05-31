@@ -8,6 +8,44 @@ from backend.document_parser import DocumentParser
 
 ALLOWED_EXTENSIONS = {'.hwp', '.hwpx', '.pdf', '.pptx', '.xlsx', '.docx', '.txt', '.md'}
 
+def make_python_snippet(content: str, query: str) -> str:
+    if not content or not query:
+        return "..."
+    
+    # Case insensitive search
+    content_lower = content.lower()
+    query_lower = query.lower()
+    
+    idx = content_lower.find(query_lower)
+    if idx == -1:
+        # Fallback to returning first part of content if query is not found in content (might be matched in title)
+        snippet = content[:200]
+        if len(content) > 200:
+            snippet += "..."
+        return snippet
+
+    start = max(0, idx - 40)
+    end = min(len(content), idx + len(query) + 120)
+    
+    snippet = content[start:end]
+    
+    if start > 0:
+        snippet = "..." + snippet
+    if end < len(content):
+        snippet = snippet + "..."
+        
+    # Highlight matching keyword case-insensitively
+    import re
+    try:
+        escaped = re.escape(query)
+        pattern = re.compile(escaped, re.IGNORECASE)
+        snippet = pattern.sub(lambda m: f"<mark>{m.group(0)}</mark>", snippet)
+    except:
+        # Simple string replace fallback
+        snippet = snippet.replace(query, f"<mark>{query}</mark>")
+        
+    return snippet
+
 class SearchEngine:
     def __init__(self):
         fm = get_file_manager()
@@ -118,6 +156,7 @@ class SearchEngine:
     def search(self, query: str, ext_filter: str = 'all', date_filter: str = 'all', size_filter: str = 'all') -> list:
         """
         Executes FTS5 match query under thread lock and returns extended highlighted snippets (200 tokens).
+        If the query is less than 3 characters, falls back to SQL LIKE search to avoid FTS5 trigram limitation.
         """
         if not query:
             return []
@@ -134,40 +173,56 @@ class SearchEngine:
             ext_clause = " AND (path LIKE '%.pptx' OR path LIKE '%.ppt' OR path LIKE '%.txt' OR path LIKE '%.md')"
 
         results = []
+        is_short_query = len(query.strip()) < 3
         with self.lock:
             try:
                 with sqlite3.connect(self.db_path, timeout=10.0) as conn:
                     cursor = conn.cursor()
-                    cursor.execute(f"""
-                        SELECT path, title, snippet(documents, 2, '<mark>', '</mark>', '...', 200) 
-                        FROM documents 
-                        WHERE documents MATCH ? {ext_clause}
-                        LIMIT 50;
-                    """, (query,))
+                    if is_short_query:
+                        cursor.execute(f"""
+                            SELECT path, title, content 
+                            FROM documents 
+                            WHERE (title LIKE ? OR content LIKE ?) {ext_clause}
+                            LIMIT 50;
+                        """, (f"%{query}%", f"%{query}%"))
+                        for row in cursor.fetchall():
+                            results.append({
+                                "path": row[0],
+                                "title": row[1],
+                                "snippet": make_python_snippet(row[2], query)
+                            })
+                    else:
+                        cursor.execute(f"""
+                            SELECT path, title, snippet(documents, 2, '<mark>', '</mark>', '...', 200) 
+                            FROM documents 
+                            WHERE documents MATCH ? {ext_clause}
+                            LIMIT 50;
+                        """, (query,))
 
-                    for row in cursor.fetchall():
-                        results.append({
-                            "path": row[0],
-                            "title": row[1],
-                            "snippet": row[2]
-                        })
+                        for row in cursor.fetchall():
+                            results.append({
+                                "path": row[0],
+                                "title": row[1],
+                                "snippet": row[2]
+                            })
             except sqlite3.OperationalError as e:
                 print(f"[SearchEngine] Search Query Error (syntax): {e}")
-                try:
-                    clean_query = "".join([c for c in query if c.isalnum() or c.isspace()])
-                    if clean_query:
-                        with sqlite3.connect(self.db_path, timeout=10.0) as conn:
-                            cursor = conn.cursor()
-                            cursor.execute(f"""
-                                SELECT path, title, snippet(documents, 2, '<mark>', '</mark>', '...', 200) 
-                                FROM documents 
-                                WHERE documents MATCH ? {ext_clause}
-                                LIMIT 50;
-                            """, (clean_query,))
-                            for row in cursor.fetchall():
-                                results.append({ "path": row[0], "title": row[1], "snippet": row[2] })
-                except Exception as ex:
-                    print(f"Fallback search failed: {ex}")
+                if not is_short_query:
+                    try:
+                        clean_query = "".join([c for c in query if c.isalnum() or c.isspace()])
+                        if clean_query:
+                            with sqlite3.connect(self.db_path, timeout=10.0) as conn:
+                                cursor = conn.cursor()
+                                cursor.execute(f"""
+                                    SELECT path, title, snippet(documents, 2, '<mark>', '</mark>', '...', 200) 
+                                    FROM documents 
+                                    WHERE documents MATCH ? {ext_clause}
+                                    LIMIT 50;
+                                """, (clean_query,))
+                                for row in cursor.fetchall():
+                                    results.append({ "path": row[0], "title": row[1], "snippet": row[2] })
+                    except Exception as ex:
+                        print(f"Fallback search failed: {ex}")
             except Exception as e:
                 print(f"[SearchEngine] Search Error: {traceback.format_exc()}")
 

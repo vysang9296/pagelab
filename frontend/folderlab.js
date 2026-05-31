@@ -117,34 +117,38 @@ function flRenderLocalTreeAsync(rootPath, treeData) {
         const isRoot = /^[a-zA-Z]:\/?$/.test(pathNormalized) || pathNormalized === '/';
         const childCount = treeData ? treeData.length : 0;
 
-        // Manage real-time watchdog automatically on folder switch if checked
-        const isWatchdogChecked = document.getElementById('fl-watchdog-toggle')?.checked || false;
-        if (isWatchdogChecked) {
-            if (isRoot) {
-                document.getElementById('fl-watchdog-toggle').checked = false;
-                console.log("[FolderLab] Watchdog disabled: root drive monitoring bypass.");
-                if (window.pywebview && window.pywebview.api && window.pywebview.api.fl_stop_watchdog) {
-                    window.pywebview.api.fl_stop_watchdog();
-                }
-            } else {
-                if (window.pywebview && window.pywebview.api && window.pywebview.api.fl_start_watchdog) {
-                    console.log("[FolderLab] Auto-starting watchdog for: " + rootPath);
-                    window.pywebview.api.fl_start_watchdog(rootPath);
-                    if (window.pywebview.api.fl_index_current_folder) {
-                        console.log("[FolderLab] Triggering background silent indexing for watchdog folder: " + rootPath);
-                        window.pywebview.api.fl_index_current_folder(rootPath, true);
-                    }
-                }
+        if (isRoot) {
+            console.log("[FolderLab] Root drive: skipping watchdog & auto-indexing.");
+            if (window.pywebview && window.pywebview.api && window.pywebview.api.fl_stop_watchdog) {
+                window.pywebview.api.fl_stop_watchdog();
+            }
+            const statusEl = document.getElementById('fl-index-status');
+            if(statusEl) {
+                statusEl.style.display = 'inline-flex';
+                statusEl.className = 'fl-index-status error';
+                statusEl.innerHTML = '⚠️ 드라이브 루트는 보안 및 과부하 방지를 위해 자동 색인되지 않습니다.';
+                setTimeout(() => { statusEl.style.display = 'none'; }, 5000);
             }
         } else {
-            if (isRoot) {
-                console.log("[FolderLab] Background indexing skipped: root drive is not auto-indexed for safety.");
-            } else if (childCount > 300) {
-                console.log("[FolderLab] Background indexing skipped: child count (" + childCount + ") exceeds 300 threshold.");
-            } else {
+            // 1. Auto-start Watchdog for non-root folder
+            if (window.pywebview && window.pywebview.api && window.pywebview.api.fl_start_watchdog) {
+                console.log("[FolderLab] Auto-starting watchdog for: " + rootPath);
+                window.pywebview.api.fl_start_watchdog(rootPath);
+            }
+            
+            // 2. Auto-index based on folder size
+            if (childCount <= 300) {
                 if (window.pywebview && window.pywebview.api && window.pywebview.api.fl_index_current_folder) {
-                    console.log("[FolderLab] Triggering background silent indexing for: " + rootPath);
+                    console.log("[FolderLab] Auto-starting background silent indexing for: " + rootPath);
                     window.pywebview.api.fl_index_current_folder(rootPath, true);
+                }
+            } else {
+                console.log("[FolderLab] Large folder detected: wait for user action.");
+                const statusEl = document.getElementById('fl-index-status');
+                if(statusEl) {
+                    statusEl.style.display = 'inline-flex';
+                    statusEl.className = 'fl-index-status indexing';
+                    statusEl.innerHTML = `<span>⚠️ 대용량 폴더(${childCount}개): 백그라운드 색인을 시작하려면 <a href="#" onclick="flIndexCurrentFolderDirect(); return false;" style="color:var(--primary-blue); text-decoration:underline; font-weight:bold; margin-left:4px;">[여기]</a>를 클릭하세요.</span>`;
                 }
             }
         }
@@ -1563,6 +1567,22 @@ async function flToggleWatchdog(enabled) {
             await pywebview.api.fl_stop_watchdog();
             console.log("[Watchdog] Stopped monitoring.");
         }
+    }
+}
+
+async function flIndexCurrentFolderDirect() {
+    if (!flCurrentLocalRoot) return;
+    const statusEl = document.getElementById('fl-index-status');
+    if(statusEl) {
+        statusEl.style.display = 'inline-flex';
+        statusEl.className = 'fl-index-status indexing';
+        statusEl.innerHTML = '<div class="spinner" style="width:10px;height:10px;border-width:1px;"></div><span>⏳ 색인 준비 중...</span>';
+    }
+    const cancelBtn = document.getElementById('fl-index-cancel-btn');
+    if(cancelBtn) cancelBtn.style.display = 'inline-block';
+    
+    if (pywebview && pywebview.api && pywebview.api.fl_index_current_folder) {
+        await pywebview.api.fl_index_current_folder(flCurrentLocalRoot, false);
     }
 }
 
