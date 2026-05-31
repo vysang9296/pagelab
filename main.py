@@ -218,6 +218,9 @@ class Api:
         
         silent_str = "true" if silent else "false"
 
+        if self._window:
+            self._window.evaluate_js(f"flStartIndexStatus({silent_str})")
+
         def _progress(count, total, filename):
             if self._window:
                 import json

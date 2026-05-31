@@ -1616,6 +1616,17 @@ async function flCancelIndex() {
     }
 }
 
+function flStartIndexStatus(silent = false) {
+    const isSilent = silent === true || silent === 'true';
+    const statusEl = document.getElementById('fl-index-status');
+    if(statusEl) {
+        statusEl.style.display = 'inline-flex';
+        statusEl.className = 'fl-index-status indexing';
+        const prefix = isSilent ? '🔄' : '⏳';
+        statusEl.innerHTML = `<div class="spinner" style="width:10px;height:10px;border-width:1px;"></div><span>${prefix} 색인 대상 선별 중...</span>`;
+    }
+}
+
 function flUpdateIndexStatus(count, total, filename, silent = false) {
     const isSilent = silent === true || silent === 'true';
     const statusEl = document.getElementById('fl-index-status');
