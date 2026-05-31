@@ -218,11 +218,11 @@ class Api:
         
         silent_str = "true" if silent else "false"
 
-        def _progress(count, filename):
+        def _progress(count, total, filename):
             if self._window:
                 import json
                 safe_name = json.dumps(filename)
-                self._window.evaluate_js(f"flUpdateIndexStatus({count}, {safe_name}, {silent_str})")
+                self._window.evaluate_js(f"flUpdateIndexStatus({count}, {total}, {safe_name}, {silent_str})")
 
         def _bg():
             try:

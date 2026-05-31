@@ -109,38 +109,42 @@ class SearchEngine:
                     except sqlite3.OperationalError:
                         pass
 
+                    # 1. Pre-scan target directory for new files to index (fast meta-scan)
+                    files_to_index = []
                     for root, dirs, files in os.walk(folder_path):
                         if self.cancel_flag: break
-                        time.sleep(0.005) 
+                        time.sleep(0.002)
                         dirs[:] = [d for d in dirs if not d.startswith('.') and d not in ('System Volume Information', '$Recycle.Bin', 'Windows', 'Program Files', 'Program Files (x86)')]
                         
                         for file in files:
-                            if self.cancel_flag: break
-                            if count >= max_files_limit:
-                                truncated = True
-                                break
                             if file.startswith('.'): continue
                             ext = os.path.splitext(file)[1].lower()
                             if ext in ALLOWED_EXTENSIONS:
                                 file_path = os.path.join(root, file)
-                                if file_path in indexed_paths:
-                                    continue
-                                try:
-                                    content = DocumentParser.extract_text(file_path)
-                                    if content:
-                                        cursor.execute("""
-                                            INSERT INTO documents (path, title, content) 
-                                            VALUES (?, ?, ?)
-                                        """, (file_path, file, content))
-                                        count += 1
-                                        if progress_callback:
-                                            progress_callback(count, file)
-                                        time.sleep(0.002)
-                                except (sqlite3.OperationalError, PermissionError):
-                                    continue
-                        if count >= max_files_limit:
-                            truncated = True
-                            break
+                                if file_path not in indexed_paths:
+                                    files_to_index.append((file_path, file))
+
+                    total_files = len(files_to_index)
+                    if total_files > max_files_limit:
+                        files_to_index = files_to_index[:max_files_limit]
+                        truncated = True
+
+                    # 2. Extract and index files sequentially
+                    for file_path, file in files_to_index:
+                        if self.cancel_flag: break
+                        try:
+                            content = DocumentParser.extract_text(file_path)
+                            if content:
+                                cursor.execute("""
+                                    INSERT INTO documents (path, title, content) 
+                                    VALUES (?, ?, ?)
+                                """, (file_path, file, content))
+                                count += 1
+                                if progress_callback:
+                                    progress_callback(count, total_files, file)
+                                time.sleep(0.002)
+                        except (sqlite3.OperationalError, PermissionError):
+                            continue
                     conn.commit()
         except Exception as e:
             print(f"[SearchEngine] Indexing Error: {traceback.format_exc()}")

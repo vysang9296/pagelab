@@ -1616,14 +1616,14 @@ async function flCancelIndex() {
     }
 }
 
-function flUpdateIndexStatus(count, filename, silent = false) {
+function flUpdateIndexStatus(count, total, filename, silent = false) {
     const isSilent = silent === true || silent === 'true';
     const statusEl = document.getElementById('fl-index-status');
     if(statusEl) {
         statusEl.style.display = 'inline-flex';
         statusEl.className = 'fl-index-status indexing';
         const prefix = isSilent ? '🔄 백그라운드 자동 색인 중' : '⏳ 수동 색인 진행 중';
-        statusEl.innerHTML = `<div class="spinner" style="width:10px;height:10px;border-width:1px;"></div><span>${prefix}: ${count}개 본문 추출 (${filename})</span>`;
+        statusEl.innerHTML = `<div class="spinner" style="width:10px;height:10px;border-width:1px;"></div><span>${prefix}: [${count}/${total}] 본문 추출 (${filename})</span>`;
     }
 }
 
