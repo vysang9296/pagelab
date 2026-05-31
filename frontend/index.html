@@ -212,6 +212,13 @@
                         <option value="month">📅 최근 1달</option>
                         <option value="year">📅 최근 1년</option>
                     </select>
+                    <select id="fl-search-size-filter" style="padding:6px 8px; font-size:12px; border:1px solid var(--border-color); border-radius:4px; background:#fff; cursor:pointer; height:32px; color:var(--text-primary);">
+                        <option value="all">⚖️ 전체 크기</option>
+                        <option value="under_10m">⚖️ 10MB 미만</option>
+                        <option value="10m_to_50m">⚖️ 10MB ~ 50MB</option>
+                        <option value="over_50m">⚖️ 50MB 이상</option>
+                        <option value="over_100m">⚖️ 100MB 이상</option>
+                    </select>
                     <input type="text" id="fl-search-input" placeholder="문서 본문 심층 검색..." style="flex-grow:1; padding:6px 12px; border:1px solid var(--border-color); border-radius:4px; font-size:13px; height:32px; box-sizing:border-box;">
                     <button class="secondary-btn" style="padding:6px 12px; height:32px; display:flex; align-items:center;" onclick="flSearchDocuments()">검색</button>
                 </div>
