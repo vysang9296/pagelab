@@ -18,6 +18,7 @@ let selectedGroupIds = new Set(); // For right panel multi-select
 let lastClickedGroupId = null;
 
 // Context Menu Close on Click/Mousedown/Touchstart/Contextmenu (Unified)
+const contextMenu = document.getElementById('context-menu');
 const dismissContextMenu = (e) => {
     const plMenu = document.getElementById('context-menu');
     if (plMenu && !plMenu.contains(e.target)) {
