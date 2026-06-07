@@ -86,13 +86,20 @@ class Api:
         escaped = json.dumps(message)
         self.evaluate_js(f"alert({escaped})")
 
+    def _parse_dialog_result(self, result):
+        if not result:
+            return None
+        if isinstance(result, (list, tuple)):
+            return result[0] if len(result) > 0 else None
+        return result
+
     # ---- FolderLab Bridge Methods ----
     def choose_dir(self):
         """Opens a directory picker dialog for changing local explorer root or real staging root."""
         if not self._window: return None
         self.log("Opening directory picker dialog...")
         result = self._window.create_file_dialog(webview.FOLDER_DIALOG)
-        return result[0] if result else None
+        return self._parse_dialog_result(result)
 
     def get_local_tree(self, root_path=None):
         self.log(f"Fetching local tree for {root_path or 'default Documents'}")
@@ -537,6 +544,8 @@ class Api:
             webview.OPEN_DIALOG, allow_multiple=True, file_types=file_types
         )
         if not files: return []
+        if isinstance(files, str):
+            files = [files]
 
         return self.process_files(files)
 
@@ -609,7 +618,7 @@ class Api:
             save_filename=default_filename,
             file_types=file_types
         )
-        return result[0] if result else None
+        return self._parse_dialog_result(result)
 
     def export_original(self, original_path, save_path):
         """Copies the pure original file to the save path."""
