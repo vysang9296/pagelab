@@ -1354,7 +1354,9 @@ async function flExecuteContextMenu(action) {
             if (pywebview && pywebview.api && pywebview.api.fl_real_mkdir) {
                 const success = await pywebview.api.fl_real_mkdir(path, trimmedName);
                 if (success) {
-                    await flRefreshDirectoryNode(path);
+                    flExpandedRealPaths.add(path);
+                    await flLoadRealTree(flRealRootPath);
+                    if (flCurrentLocalRoot) await flLoadLocalTree(flCurrentLocalRoot);
                 }
             }
             hideLoading();
