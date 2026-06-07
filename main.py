@@ -81,6 +81,11 @@ class Api:
                 self.log(f"evaluate_js error: {e}")
         return None
 
+    def js_alert(self, message):
+        import json
+        escaped = json.dumps(message)
+        self.evaluate_js(f"alert({escaped})")
+
     # ---- FolderLab Bridge Methods ----
     def choose_dir(self):
         """Opens a directory picker dialog for changing local explorer root or real staging root."""
@@ -287,11 +292,11 @@ class Api:
         try:
             success = VirtualFS.export_virtual_tree(virtual_folders, save_path, export_mode='zip')
             if success:
-                self.evaluate_js(f"alert('가상 폴더 패키징이 성공적으로 완료되었습니다:\\n{save_path}')")
+                self.js_alert(f"가상 폴더 패키징이 성공적으로 완료되었습니다:\n{save_path}")
                 return True
         except Exception as e:
             self.log(f"Virtual Export Error: {traceback.format_exc()}")
-            self.evaluate_js(f"alert('가상 폴더 내보내기 실패:\\n{str(e)}')")
+            self.js_alert(f"가상 폴더 내보내기 실패:\n{str(e)}")
             return False
 
     # ---- Real-time Local Staging API ----
@@ -304,26 +309,26 @@ class Api:
             return True
         except Exception as e:
             self.log(f"Real mkdir error: {e}")
-            self.evaluate_js(f"alert('폴더 생성 실패:\\n{str(e)}')")
+            self.js_alert(f"폴더 생성 실패:\n{str(e)}")
             return False
 
     def fl_real_rename(self, old_path, new_name):
         """Renames a real file or folder on the local disk."""
         try:
             if not os.path.exists(old_path):
-                self.evaluate_js("alert('대상 파일 또는 폴더가 존재하지 않습니다.')")
+                self.js_alert('대상 파일 또는 폴더가 존재하지 않습니다.')
                 return False
             
             new_name = new_name.strip()
             if not new_name or any(c in new_name for c in r'\/:*?"<>|'):
-                self.evaluate_js("alert('올바르지 않은 이름이거나 허용되지 않는 문자가 포함되어 있습니다.')")
+                self.js_alert('올바르지 않은 이름이거나 허용되지 않는 문자가 포함되어 있습니다.')
                 return False
             
             parent_dir = os.path.dirname(old_path)
             new_path = os.path.join(parent_dir, new_name)
             
             if os.path.exists(new_path):
-                self.evaluate_js("alert('동일한 이름의 파일 또는 폴더가 이미 존재합니다.')")
+                self.js_alert('동일한 이름의 파일 또는 폴더가 이미 존재합니다.')
                 return False
             
             os.rename(old_path, new_path)
@@ -331,7 +336,7 @@ class Api:
             return True
         except Exception as e:
             self.log(f"Real rename error: {e}")
-            self.evaluate_js(f"alert('이름 변경 실패:\\n{str(e)}')")
+            self.js_alert(f"이름 변경 실패:\n{str(e)}")
             return False
 
 
@@ -353,7 +358,7 @@ class Api:
             return True
         except Exception as e:
             self.log(f"Real copy error: {e}")
-            self.evaluate_js(f"alert('파일 복사 실패:\\n{str(e)}')")
+            self.js_alert(f"파일 복사 실패:\n{str(e)}")
             return False
 
     def fl_transfer_items(self, items, dest_dir, mode='copy'):
@@ -362,7 +367,7 @@ class Api:
         mode can be 'copy' or 'move'.
         """
         if not dest_dir or not os.path.exists(dest_dir):
-            self.evaluate_js("alert('타겟 폴더가 연결되어 있지 않거나 존재하지 않습니다.')")
+            self.js_alert('타겟 폴더가 연결되어 있지 않거나 존재하지 않습니다.')
             return False
 
         success_count = 0
@@ -398,7 +403,7 @@ class Api:
             return True
         except Exception as e:
             self.log(f"Transfer error: {e}")
-            self.evaluate_js(f"alert('전송 중 오류 발생:\\n{str(e)}')")
+            self.js_alert(f"전송 중 오류 발생:\n{str(e)}")
             return False
 
     def fl_open_file(self, file_path):
@@ -410,7 +415,7 @@ class Api:
             return True
         except Exception as e:
             self.log(f"Open file error: {e}")
-            self.evaluate_js(f"alert('파일 실행 실패:\\n{str(e)}')")
+            self.js_alert(f"파일 실행 실패:\n{str(e)}")
             return False
 
     def fl_open_folder_in_explorer(self, file_path):
@@ -423,7 +428,7 @@ class Api:
             return True
         except Exception as e:
             self.log(f"Open folder error: {e}")
-            self.evaluate_js(f"alert('폴더 열기 실패:\\n{str(e)}')")
+            self.js_alert(f"폴더 열기 실패:\n{str(e)}")
             return False
 
     def fl_commit_real_staging(self, dest_root, staging_tree):
@@ -432,7 +437,7 @@ class Api:
         staging_tree is a list of simulated folder nodes, each containing 'name' and 'children' (files).
         """
         if not dest_root or not os.path.exists(dest_root):
-            self.evaluate_js("alert('타겟 폴더가 연결되어 있지 않거나 존재하지 않습니다.')")
+            self.js_alert('타겟 폴더가 연결되어 있지 않거나 존재하지 않습니다.')
             return False
 
         self.log(f"Committing real staging tree to: {dest_root}")
@@ -452,13 +457,13 @@ class Api:
                 for root, dirs, files in os.walk(export_root):
                     total_files += len(files)
                 self.log(f"Successfully committed {total_files} files to {export_root}")
-                self.evaluate_js(f"alert('최종 커밋 성공!\\n{total_files}개의 항목이 실제 디렉토리에 동기화되었습니다.\\n위치: {export_root}')")
+                self.js_alert(f"최종 커밋 성공!\n{total_files}개의 항목이 실제 디렉토리에 동기화되었습니다.\n위치: {export_root}")
                 return True
             else:
                 raise RuntimeError("Staging copy failed inside VirtualFS")
         except Exception as e:
             self.log(f"Commit error: {traceback.format_exc()}")
-            self.evaluate_js(f"alert('최종 커밋 중 오류 발생:\\n{str(e)}')")
+            self.js_alert(f"최종 커밋 중 오류 발생:\n{str(e)}")
             return False
 
     def fl_real_delete(self, target_path):
@@ -472,7 +477,7 @@ class Api:
                 raise RuntimeError("Recycle operation failed.")
         except Exception as e:
             self.log(f"Real delete error: {e}")
-            self.evaluate_js(f"alert('삭제 실패:\\n{str(e)}')")
+            self.js_alert(f"삭제 실패:\n{str(e)}")
             return False
 
     def fl_copy_items_real(self, src_paths, dest_dir):
@@ -502,7 +507,7 @@ class Api:
             return True
         except Exception as e:
             self.log(f"[RealCopy] Error: {e}")
-            self.evaluate_js(f"alert('복사 중 오류 발생:\\n{str(e)}')")
+            self.js_alert(f"복사 중 오류 발생:\n{str(e)}")
             return False
 
     def fl_real_delete_multi(self, target_paths):
@@ -517,7 +522,7 @@ class Api:
             return True
         except Exception as e:
             self.log(f"Multi delete error: {e}")
-            self.evaluate_js(f"alert('단체 삭제 실패:\\n{str(e)}')")
+            self.js_alert(f"단체 삭제 실패:\n{str(e)}")
             return False
 
 
@@ -585,10 +590,7 @@ class Api:
                 })
             except Exception as e:
                 self.log(f"Error processing {file_path}: {traceback.format_exc()}")
-                import base64
-                error_msg = f"오류 발생 ({os.path.basename(file_path)}):\\n{str(e)}"
-                b64_msg = base64.b64encode(error_msg.encode('utf-8')).decode('utf-8')
-                self.evaluate_js(f"alert(decodeURIComponent(escape(window.atob('{b64_msg}'))))")
+                self.js_alert(f"오류 발생 ({os.path.basename(file_path)}):\n{str(e)}")
 
         return results
 
@@ -613,11 +615,11 @@ class Api:
         """Copies the pure original file to the save path."""
         try:
             shutil.copy2(original_path, save_path)
-            self.evaluate_js(f"alert('성공적으로 저장되었습니다:\\n{save_path}')")
+            self.js_alert(f"성공적으로 저장되었습니다:\n{save_path}")
             return True
         except Exception as e:
             self.log(f"Original Export Error: {traceback.format_exc()}")
-            self.evaluate_js(f"alert('저장 실패:\\n{str(e)}')")
+            self.js_alert(f"저장 실패:\n{str(e)}")
             return False
 
     def export_data(self, export_type: str, save_path: str, payload: dict):
@@ -684,12 +686,12 @@ class Api:
                 # Create final zip at save_path
                 self._fm.create_zip_archive(files_to_zip, save_path)
                 
-            self.evaluate_js(f"alert('성공적으로 저장되었습니다:\\n{save_path}')")
+            self.js_alert(f"성공적으로 저장되었습니다:\n{save_path}")
             return True
             
         except Exception as e:
             self.log(f"Export Error: {traceback.format_exc()}")
-            self.evaluate_js(f"alert('내보내기 실패:\\n{str(e)}')")
+            self.js_alert(f"내보내기 실패:\n{str(e)}")
             return False
 
     def cleanup(self):
