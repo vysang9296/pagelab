@@ -49,11 +49,11 @@ class VirtualFS:
                     for root, dirs, files in os.walk(temp_dir):
                         for d in dirs:
                             dir_path = os.path.join(root, d)
-                            arcname = os.path.relpath(dir_path, temp_dir) + '/'
+                            arcname = os.path.relpath(dir_path, temp_dir).replace('\\', '/') + '/'
                             zf.write(dir_path, arcname)
                         for file in files:
                             file_path = os.path.join(root, file)
-                            arcname = os.path.relpath(file_path, temp_dir)
+                            arcname = os.path.relpath(file_path, temp_dir).replace('\\', '/')
                             zf.write(file_path, arcname)
             elif export_mode == 'copy':
                 if os.path.exists(save_path):

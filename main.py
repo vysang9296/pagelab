@@ -626,14 +626,23 @@ class Api:
             return False
 
         # Validate rotation in payload
-        if isinstance(payload, dict) and 'pages' in payload:
-            for p in payload['pages']:
-                if p.get('rotation') not in (0, 90, 180, 270): p['rotation'] = 0
+        def validate_rotation(p_list):
+            for p in p_list:
+                if isinstance(p, dict) and p.get('rotation') not in (0, 90, 180, 270):
+                    p['rotation'] = 0
+
+        if isinstance(payload, dict):
+            if 'pages' in payload:
+                validate_rotation(payload['pages'])
         elif isinstance(payload, list):
             for item in payload:
-                if 'data' in item and 'pages' in item['data']:
-                    for p in item['data']['pages']:
-                        if p.get('rotation') not in (0, 90, 180, 270): p['rotation'] = 0
+                if isinstance(item, dict):
+                    if item.get('type') == 'pdf' and isinstance(item.get('data'), dict) and 'pages' in item['data']:
+                        validate_rotation(item['data']['pages'])
+                    elif item.get('type') == 'zip' and isinstance(item.get('data'), list):
+                        for sub_pdf in item['data']:
+                            if isinstance(sub_pdf, dict) and 'pages' in sub_pdf:
+                                validate_rotation(sub_pdf['pages'])
 
         try:
             temp_dir = self._fm.get_temp_path(f"export_{uuid.uuid4().hex[:8]}")
