@@ -62,7 +62,7 @@ function flInit() {
         });
     }
 
-    flRenderVirtualTree();
+    flRenderStagingTree();
     flInitSplitter();
 
     if (window.pywebview && window.pywebview.api) {
