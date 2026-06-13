@@ -623,10 +623,45 @@ function renameGroup(gId) {
 }
 
 function showPageContextMenu(e, pId) {
+    const groupItems = Object.keys(groups).map(gId => `
+        <div class="context-menu-item" onclick="sendSelectedPagesToGroup('${gId}')">${escapeHTML(groups[gId].name)}</div>
+    `).join('');
+
     const html = `
         <div class="context-menu-item" onclick="renamePage('${pId}')">✏️ 페이지 이름 지정</div>
+        <div class="context-menu-divider"></div>
+        <div class="context-menu-item send-to-group-trigger">📁 분류 폴더로 보내기 ▸
+            <div class="context-submenu">
+                ${groupItems || '<div class="context-menu-item" style="color:#888; cursor:default;">(폴더 없음)</div>'}
+            </div>
+        </div>
     `;
     showMenu(e, html);
+}
+
+function sendSelectedPagesToGroup(targetGroupId) {
+    const selectedCards = document.querySelectorAll('.page-card.selected');
+    let pIdsToAdd = [];
+    if (selectedCards.length > 0) {
+        pIdsToAdd = Array.from(selectedCards).map(c => c.dataset.pid);
+    } else if (lastClickedThumbId) {
+        pIdsToAdd = [lastClickedThumbId];
+    }
+
+    if (pIdsToAdd.length === 0) return;
+
+    // Duplicate check: Add only if not already present in the target group
+    pIdsToAdd.forEach(pId => {
+        if (!groups[targetGroupId].pageIds.includes(pId)) {
+            groups[targetGroupId].pageIds.push(pId);
+        }
+    });
+
+    updateGroupSidebar();
+    renderCenterViewer();
+    
+    const menu = document.getElementById('context-menu');
+    if (menu) menu.style.display = 'none';
 }
 
 function renamePage(pId) {
