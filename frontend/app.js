@@ -411,19 +411,10 @@ function handleThumbClick(e, card, index, currentList) {
                 }
             });
         }
-    } else if (e.ctrlKey || e.metaKey) {
+    } else {
         card.classList.toggle('selected');
         const checkbox = card.querySelector('.page-card-checkbox');
         if (checkbox) checkbox.checked = card.classList.contains('selected');
-    } else {
-        document.querySelectorAll('.page-card').forEach(c => {
-            c.classList.remove('selected');
-            const checkbox = c.querySelector('.page-card-checkbox');
-            if (checkbox) checkbox.checked = false;
-        });
-        card.classList.add('selected');
-        const checkbox = card.querySelector('.page-card-checkbox');
-        if (checkbox) checkbox.checked = true;
     }
     lastClickedThumbId = card.dataset.pid;
 }
