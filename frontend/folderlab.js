@@ -533,6 +533,9 @@ function flCreateStagingTreeNode(node, depth, parentNode = null) {
     item.dataset.name = node.name;
     item.dataset.isdir = node.isDir;
     item.dataset.treetype = 'staging';
+    item.dataset.path = node.path || '';
+    item.dataset.size = node.size || '';
+    item.dataset.mtime = node.mtime || '';
 
     const chk = document.createElement('input');
     chk.type = 'checkbox';
@@ -680,15 +683,44 @@ function flCreateStagingTreeNode(node, depth, parentNode = null) {
 
     item.ondragstart = (e) => {
         e.stopPropagation();
-        e.dataTransfer.setData('text/plain', JSON.stringify({
-            source_tree: 'staging',
-            id: node.id,
-            name: node.name,
-            isDir: node.isDir,
-            path: node.path,
-            size: node.size || '[ DIR ]',
-            mtime: node.mtime || ''
-        }));
+        if (chk.checked) {
+            const checkedBoxes = Array.from(document.querySelectorAll('.fl-staging-tree .fl-tree-checkbox:checked'));
+            const filteredBoxes = checkedBoxes.filter(cb => {
+                let parentWrapper = cb.closest('.fl-node-wrapper').parentElement.closest('.fl-node-wrapper');
+                while (parentWrapper) {
+                    const parentChk = parentWrapper.querySelector(':scope > .fl-tree-item > .fl-tree-checkbox');
+                    if (parentChk && parentChk.checked) {
+                        return false;
+                    }
+                    parentWrapper = parentWrapper.parentElement.closest('.fl-node-wrapper');
+                }
+                return true;
+            });
+            const dataArr = filteredBoxes.map(c => {
+                const iEl = c.closest('.fl-tree-item');
+                const nodeWrapper = c.closest('.fl-node-wrapper');
+                return {
+                    source_tree: 'staging',
+                    id: nodeWrapper.dataset.id,
+                    name: iEl.dataset.name,
+                    isDir: iEl.dataset.isdir === 'true',
+                    path: iEl.dataset.path || '',
+                    size: iEl.dataset.size || '',
+                    mtime: iEl.dataset.mtime || ''
+                };
+            });
+            e.dataTransfer.setData('text/plain', JSON.stringify(dataArr));
+        } else {
+            e.dataTransfer.setData('text/plain', JSON.stringify([{
+                source_tree: 'staging',
+                id: node.id,
+                name: node.name,
+                isDir: node.isDir,
+                path: node.path || '',
+                size: node.size || '[ DIR ]',
+                mtime: node.mtime || ''
+            }]));
+        }
     };
 
     item.onclick = (e) => {
