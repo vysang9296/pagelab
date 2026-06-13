@@ -556,8 +556,29 @@ function escapeHTML(str) {
 function showMenu(e, htmlItems) {
     contextMenu.innerHTML = htmlItems;
     contextMenu.style.display = 'block';
-    contextMenu.style.left = e.pageX + 'px';
-    contextMenu.style.top = e.pageY + 'px';
+
+    const menuWidth = contextMenu.offsetWidth || 160;
+    const menuHeight = contextMenu.offsetHeight || 150;
+
+    // Has submenu (e.g. send to group) - preserve extra 160px horizontal space
+    const hasSubmenu = htmlItems.includes('context-submenu');
+    const requiredWidth = hasSubmenu ? (menuWidth + 160) : menuWidth;
+
+    let x = e.clientX;
+    let y = e.clientY;
+
+    if (x + requiredWidth > window.innerWidth) {
+        x = window.innerWidth - requiredWidth - 10;
+    }
+    if (y + menuHeight > window.innerHeight) {
+        y = window.innerHeight - menuHeight - 10;
+    }
+
+    x = Math.max(0, x) + (window.scrollX || window.pageXOffset);
+    y = Math.max(0, y) + (window.scrollY || window.pageYOffset);
+
+    contextMenu.style.left = x + 'px';
+    contextMenu.style.top = y + 'px';
 }
 
 function showSourceContextMenu(e, fileId) {
