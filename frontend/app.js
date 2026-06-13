@@ -529,6 +529,7 @@ function showGroupContextMenu(e, groupId) {
             <div class="context-menu-item" style="font-weight:bold; color:#888; cursor:default;">${safeName}</div>
             <div class="context-menu-divider"></div>
             <div class="context-menu-item" onclick="renameGroup('${groupId}')">✏️ 폴더 이름 변경</div>
+            <div class="context-menu-item" onclick="duplicateGroup('${groupId}')">👯 폴더 복제 (Duplicate)</div>
             <div class="context-menu-item" onclick="exportGroupMerge()">🗂️ 통합 다운로드 (PDF)</div>
             <div class="context-menu-item" onclick="exportGroupSeparate()">📑 파일별 다운로드 (ZIP)</div>
         `;
@@ -536,6 +537,7 @@ function showGroupContextMenu(e, groupId) {
         html = `
             <div class="context-menu-item" style="font-weight:bold; color:#888; cursor:default;">${selectedGroupIds.size}개 폴더 선택됨</div>
             <div class="context-menu-divider"></div>
+            <div class="context-menu-item" onclick="duplicateSelectedGroups()">👯 폴더 일괄 복제 (Duplicate)</div>
             <div class="context-menu-item" onclick="exportMultiMerge()">🗂️ 다중 통합 다운로드 (통합PDF 모음 ZIP)</div>
             <div class="context-menu-item" onclick="exportMultiSeparate()">📑 다중 파일별 다운로드 (이중 ZIP)</div>
         `;
@@ -683,4 +685,55 @@ async function exportMultiSeparate() {
         await pywebview.api.export_data('single_zip', savePath, zipItems);
         hideLoading();
     }
+}
+
+function duplicateGroup(gId, shouldRender = true) {
+    const originalGroup = groups[gId];
+    if (!originalGroup) return;
+
+    const newGroupId = 'group_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+    const newPageIds = [];
+
+    originalGroup.pageIds.forEach(pId => {
+        const originalPage = pagePool[pId];
+        if (originalPage) {
+            const newPageId = `${originalPage.id}_copy_${Math.random().toString(36).substr(2, 5)}`;
+            pagePool[newPageId] = {
+                ...originalPage,
+                id: newPageId
+            };
+            newPageIds.push(newPageId);
+        }
+    });
+
+    const match = originalGroup.name.match(/(.*)\s\(복사본(?:\s(\d+))?\)$/);
+    let newName = '';
+    if (match) {
+        const baseName = match[1];
+        const num = match[2] ? parseInt(match[2], 10) : 1;
+        newName = `${baseName} (복사본 ${num + 1})`;
+    } else {
+        newName = `${originalGroup.name} (복사본)`;
+    }
+
+    groups[newGroupId] = {
+        name: newName,
+        pageIds: newPageIds
+    };
+
+    if (shouldRender) {
+        updateGroupSidebar();
+        renderCenterViewer();
+    }
+    return newGroupId;
+}
+
+function duplicateSelectedGroups() {
+    if (selectedGroupIds.size === 0) return;
+    const gIds = Array.from(selectedGroupIds);
+    gIds.forEach(gId => {
+        duplicateGroup(gId, false);
+    });
+    updateGroupSidebar();
+    renderCenterViewer();
 }
