@@ -1360,8 +1360,25 @@ function flShowContextMenu(event, path, isDir, treeType = 'local', id = null) {
     }
 
     menu.style.display = 'block';
-    menu.style.left = `${event.pageX}px`;
-    menu.style.top = `${event.pageY}px`;
+
+    const menuWidth = menu.offsetWidth || 160;
+    const menuHeight = menu.offsetHeight || 200;
+
+    let x = event.clientX;
+    let y = event.clientY;
+
+    if (x + menuWidth > window.innerWidth) {
+        x = window.innerWidth - menuWidth - 10;
+    }
+    if (y + menuHeight > window.innerHeight) {
+        y = window.innerHeight - menuHeight - 10;
+    }
+
+    x = Math.max(0, x) + (window.scrollX || window.pageXOffset);
+    y = Math.max(0, y) + (window.scrollY || window.pageYOffset);
+
+    menu.style.left = `${x}px`;
+    menu.style.top = `${y}px`;
 }
 
 async function flExecuteContextMenu(action) {
