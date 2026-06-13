@@ -1,9 +1,8 @@
-# Task List: Page Lab Usability Improvements
+# Task List: Page Lab Usability & UI Layout Fixes
 
 | Task | Description | Status |
 | --- | --- | --- |
-| Task 1 | HTML & CSS 마크업 및 스타일링 (index.html, style.css) | done |
-| Task 2 | Page Lab 페이지 카드 체크박스 및 선택 토글 로직 구현 (app.js) | done |
-| Task 3 | 페이지 우클릭 "분류 폴더로 보내기" 메뉴 구현 (app.js) | done |
-| Task 4 | 명시적 그룹 내보내기 버튼 및 팝업 대화상자 구현 (app.js) | done |
-| Task 5 | 단위 테스트 강화 및 검증 (tests/test_export_improvements.py) | done |
+| Task 1 | 페이지 카드 클릭 시 토글 선택 로직 수정 (app.js) | done |
+| Task 2 | 우측 분류 폴더 헤더 버튼 레이아웃 수정 (index.html) | done |
+| Task 3 | Page Lab & Folder Lab 우클릭 메뉴 짤림 방지 보정 (app.js, folderlab.js) | done |
+| Task 4 | 전체 수동 검증 및 자동 단위 테스트 수행 | done |
