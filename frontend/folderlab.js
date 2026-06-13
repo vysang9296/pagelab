@@ -1323,9 +1323,10 @@ function flShowContextMenu(event, path, isDir, treeType = 'local', id = null) {
     const exportZip = document.getElementById('fl-ctx-export-zip');
     const exportSync = document.getElementById('fl-ctx-export-sync');
     const deleteItem = document.getElementById('fl-ctx-delete');
+    const openPageLab = document.getElementById('fl-ctx-open-pagelab');
 
     // Reset all to none
-    [openFile, openFolder, newFolder, renameItem, duplicateItem, exportZip, exportSync, deleteItem].forEach(el => {
+    [openFile, openFolder, newFolder, renameItem, duplicateItem, exportZip, exportSync, deleteItem, openPageLab].forEach(el => {
         if (el) el.style.display = 'none';
     });
 
@@ -1357,6 +1358,15 @@ function flShowContextMenu(event, path, isDir, treeType = 'local', id = null) {
         if (duplicateItem) duplicateItem.style.display = 'block';
     } else if (treeType === 'staging_root') {
         if (newFolder) newFolder.style.display = 'block';
+    }
+
+    // Page Lab integration condition
+    const isEligibleFile = path && (path.toLowerCase().endsWith('.pdf') || path.toLowerCase().endsWith('.hwp') || path.toLowerCase().endsWith('.hwpx'));
+    const isStagingFolder = treeType === 'staging' && isDir;
+    if (openPageLab) {
+        if (isStagingFolder || (!isDir && isEligibleFile)) {
+            openPageLab.style.display = 'block';
+        }
     }
 
     menu.style.display = 'block';
@@ -1394,6 +1404,79 @@ async function flExecuteContextMenu(action) {
     } else if (action === 'open_folder') {
         if (path && pywebview && pywebview.api && pywebview.api.fl_open_folder_in_explorer) {
             await pywebview.api.fl_open_folder_in_explorer(path);
+        }
+    } else if (action === 'open_pagelab') {
+        let paths = [];
+        if (treeType === 'staging' && isDir && id) {
+            function findNode(arr, targetId) {
+                for (const node of arr) {
+                    if (node.id === targetId) return node;
+                    if (node.isDir && node.children) {
+                        const found = findNode(node.children, targetId);
+                        if (found) return found;
+                    }
+                }
+                return null;
+            }
+            function collectPaths(node, result = []) {
+                if (!node.isDir) {
+                    if (node.path) result.push(node.path);
+                } else if (node.children) {
+                    node.children.forEach(child => collectPaths(child, result));
+                }
+                return result;
+            }
+            const targetNode = findNode(flStagingFolders, id);
+            if (targetNode) {
+                collectPaths(targetNode, paths);
+            }
+        } else {
+            // Check for multi-selected checkboxes in the current tree panel
+            const checkedItems = document.querySelectorAll(`.fl-${treeType}-tree .fl-tree-checkbox:checked`);
+            let checkedPaths = [];
+            if (checkedItems.length > 0) {
+                checkedItems.forEach(chk => {
+                    const itemEl = chk.closest('.fl-tree-item');
+                    if (itemEl) {
+                        const itemPath = itemEl.dataset.path;
+                        const itemIsDir = itemEl.dataset.isdir === 'true';
+                        if (!itemIsDir && itemPath) {
+                            const lowerPath = itemPath.toLowerCase();
+                            if (lowerPath.endsWith('.pdf') || lowerPath.endsWith('.hwp') || lowerPath.endsWith('.hwpx')) {
+                                checkedPaths.push(itemPath);
+                            }
+                        }
+                    }
+                });
+            }
+
+            if (checkedPaths.length > 0 && (checkedPaths.includes(path) || !path)) {
+                paths = checkedPaths;
+            } else if (path) {
+                paths = [path];
+            }
+        }
+
+        if (paths.length > 0) {
+            showLoading("Page Lab으로 파일 전송 중...");
+            try {
+                if (pywebview && pywebview.api && pywebview.api.process_files) {
+                    const results = await pywebview.api.process_files(paths);
+                    if (results && results.length > 0) {
+                        if (typeof processNewFiles === 'function') {
+                            processNewFiles(results);
+                        }
+                    }
+                    if (typeof switchTab === 'function') {
+                        switchTab('pagelab');
+                    }
+                }
+            } catch (err) {
+                console.error("open_pagelab error:", err);
+                alert("파일을 Page Lab으로 전송하는 도중 오류가 발생했습니다: " + err);
+            } finally {
+                hideLoading();
+            }
         }
     } else if (action === 'new_folder') {
         const folderName = prompt("생성할 새 폴더명을 입력하세요:", "새 폴더");
