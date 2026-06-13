@@ -839,3 +839,69 @@ function duplicateSelectedGroups() {
     updateGroupSidebar();
     renderCenterViewer();
 }
+
+function showPageLabExportDialog() {
+    // Find checked group folders
+    const selectedGIds = Array.from(selectedGroupIds);
+    if (selectedGIds.length === 0) {
+        alert("내보낼 분류 폴더를 우측 목록에서 한 개 이상 선택(클릭)해주세요.");
+        return;
+    }
+
+    const modal = document.createElement('div');
+    modal.style.position = 'fixed'; modal.style.top = '0'; modal.style.left = '0';
+    modal.style.width = '100%'; modal.style.height = '100%';
+    modal.style.backgroundColor = 'rgba(0,0,0,0.4)';
+    modal.style.display = 'flex'; modal.style.alignItems = 'center'; modal.style.justifyContent = 'center';
+    modal.style.zIndex = '9999';
+
+    const dialog = document.createElement('div');
+    dialog.style.background = '#fff'; dialog.style.padding = '24px'; dialog.style.borderRadius = '8px';
+    dialog.style.boxShadow = '0 4px 16px rgba(0,0,0,0.2)'; dialog.style.width = '420px'; dialog.style.textAlign = 'center';
+
+    const title = document.createElement('h3');
+    title.innerText = '문서 분류 결합 내보내기';
+    title.style.margin = '0 0 12px 0'; title.style.fontSize = '16px';
+
+    const desc = document.createElement('p');
+    desc.innerText = `선택한 ${selectedGIds.length}개 분류 폴더를 어떤 형태로 다운로드하시겠습니까?`;
+    desc.style.fontSize = '13px'; desc.style.color = '#666'; desc.style.margin = '0 0 20px 0';
+
+    const btnContainer = document.createElement('div');
+    btnContainer.style.display = 'flex'; btnContainer.style.flexDirection = 'column'; btnContainer.style.gap = '8px';
+
+    // Button 1: Merge selected to single PDF (for single group) or multiple ZIP
+    const mergeBtn = document.createElement('button');
+    mergeBtn.className = 'primary-btn';
+    mergeBtn.innerText = selectedGIds.length === 1 ? '🗂️ 단일 PDF 파일로 결합 저장' : '🗂️ 각 폴더별 통합 PDF 모음 (ZIP)';
+    mergeBtn.onclick = () => {
+        document.body.removeChild(modal);
+        if (selectedGIds.length === 1) exportGroupMerge();
+        else exportMultiMerge();
+    };
+
+    // Button 2: Separate pages to ZIP
+    const sepBtn = document.createElement('button');
+    sepBtn.className = 'secondary-btn';
+    sepBtn.innerText = selectedGIds.length === 1 ? '📑 페이지별 개별 PDF로 분할 저장 (ZIP)' : '📑 다중 폴더 개별 페이지 압축 (이중 ZIP)';
+    sepBtn.onclick = () => {
+        document.body.removeChild(modal);
+        if (selectedGIds.length === 1) exportGroupSeparate();
+        else exportMultiSeparate();
+    };
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'secondary-btn';
+    cancelBtn.innerText = '취소';
+    cancelBtn.style.marginTop = '8px';
+    cancelBtn.onclick = () => { document.body.removeChild(modal); };
+
+    btnContainer.appendChild(mergeBtn);
+    btnContainer.appendChild(sepBtn);
+    btnContainer.appendChild(cancelBtn);
+    dialog.appendChild(title);
+    dialog.appendChild(desc);
+    dialog.appendChild(btnContainer);
+    modal.appendChild(dialog);
+    document.body.appendChild(modal);
+}
