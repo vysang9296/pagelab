@@ -302,11 +302,44 @@ function createPageCard(pageData, index, currentList) {
     card.dataset.pid = pageData.id;
     card.draggable = true;
 
+    // Checkbox container at top-left
+    const chkCont = document.createElement('div');
+    chkCont.className = 'page-card-checkbox-container';
+    const chk = document.createElement('input');
+    chk.type = 'checkbox';
+    chk.className = 'page-card-checkbox';
+    chk.checked = card.classList.contains('selected'); // sync check status
+    chk.onclick = (e) => {
+        e.stopPropagation();
+        card.classList.toggle('selected');
+        const checkbox = card.querySelector('.page-card-checkbox');
+        if (checkbox) checkbox.checked = card.classList.contains('selected');
+        lastClickedThumbId = pageData.id;
+    };
+    chkCont.appendChild(chk);
+    card.appendChild(chkCont);
+
+    // Zoom hover button
+    const zoomBtn = document.createElement('button');
+    zoomBtn.className = 'zoom-hover-btn';
+    zoomBtn.innerText = '🔍 크게 보기';
+    zoomBtn.onclick = (e) => {
+        e.stopPropagation();
+        openZoom(pageData.dataUrl);
+    };
+    card.appendChild(zoomBtn);
+
     // Drag Start
     card.ondragstart = (e) => {
         if(!card.classList.contains('selected')) {
-            document.querySelectorAll('.page-card').forEach(c => c.classList.remove('selected'));
+            document.querySelectorAll('.page-card').forEach(c => {
+                c.classList.remove('selected');
+                const checkbox = c.querySelector('.page-card-checkbox');
+                if (checkbox) checkbox.checked = false;
+            });
             card.classList.add('selected');
+            const checkbox = card.querySelector('.page-card-checkbox');
+            if (checkbox) checkbox.checked = true;
         }
         e.dataTransfer.setData('text/plain', 'pages'); 
     };
@@ -335,8 +368,14 @@ function createPageCard(pageData, index, currentList) {
         
         // If it's not selected, make it the only selection before showing menu
         if(!card.classList.contains('selected')) {
-            document.querySelectorAll('.page-card').forEach(c => c.classList.remove('selected'));
+            document.querySelectorAll('.page-card').forEach(c => {
+                c.classList.remove('selected');
+                const checkbox = c.querySelector('.page-card-checkbox');
+                if (checkbox) checkbox.checked = false;
+            });
             card.classList.add('selected');
+            const checkbox = card.querySelector('.page-card-checkbox');
+            if (checkbox) checkbox.checked = true;
         }
         showPageContextMenu(e, pageData.id); 
     };
@@ -365,16 +404,44 @@ function handleThumbClick(e, card, index, currentList) {
             const min = Math.min(lastIdx, index);
             const max = Math.max(lastIdx, index);
             document.querySelectorAll('.page-card').forEach((c, i) => {
-                if(i >= min && i <= max) c.classList.add('selected');
+                if(i >= min && i <= max) {
+                    c.classList.add('selected');
+                    const checkbox = c.querySelector('.page-card-checkbox');
+                    if (checkbox) checkbox.checked = true;
+                }
             });
         }
     } else if (e.ctrlKey || e.metaKey) {
         card.classList.toggle('selected');
+        const checkbox = card.querySelector('.page-card-checkbox');
+        if (checkbox) checkbox.checked = card.classList.contains('selected');
     } else {
-        document.querySelectorAll('.page-card').forEach(c => c.classList.remove('selected'));
+        document.querySelectorAll('.page-card').forEach(c => {
+            c.classList.remove('selected');
+            const checkbox = c.querySelector('.page-card-checkbox');
+            if (checkbox) checkbox.checked = false;
+        });
         card.classList.add('selected');
+        const checkbox = card.querySelector('.page-card-checkbox');
+        if (checkbox) checkbox.checked = true;
     }
     lastClickedThumbId = card.dataset.pid;
+}
+
+function selectAllPages() {
+    document.querySelectorAll('.page-card').forEach(c => {
+        c.classList.add('selected');
+        const checkbox = c.querySelector('.page-card-checkbox');
+        if (checkbox) checkbox.checked = true;
+    });
+}
+
+function deselectAllPages() {
+    document.querySelectorAll('.page-card').forEach(c => {
+        c.classList.remove('selected');
+        const checkbox = c.querySelector('.page-card-checkbox');
+        if (checkbox) checkbox.checked = false;
+    });
 }
 
 // -------------------------
