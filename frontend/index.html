@@ -64,6 +64,8 @@
                 </div>
                 
                 <div style="margin-left: auto; display: flex; gap: 8px;">
+                    <button class="secondary-btn" onclick="selectAllPages()">☑ 전체 선택</button>
+                    <button class="secondary-btn" onclick="deselectAllPages()">☐ 선택 해제</button>
                     <button class="secondary-btn" onclick="addBlankPage()">+ 간지 추가</button>
                     <button class="secondary-btn" onclick="rotateSelected()">선택 회전</button>
                     <button class="danger-btn" onclick="deleteSelected()">선택 제외(삭제)</button>
@@ -82,7 +84,10 @@
         <div class="right-panel">
             <div class="panel-header">
                 <h3>분류 폴더 (Groups)</h3>
-                <button class="primary-btn" style="padding: 4px 8px; font-size: 12px;" onclick="addGroup()">+ 폴더</button>
+                <div style="display:flex; gap:4px;">
+                    <button class="secondary-btn" style="padding: 4px 8px; font-size: 12px;" onclick="showPageLabExportDialog()">📤 내보내기</button>
+                    <button class="primary-btn" style="padding: 4px 8px; font-size: 12px;" onclick="addGroup()">+ 폴더</button>
+                </div>
             </div>
             <div class="groups-container" id="groups-container">
             </div>
