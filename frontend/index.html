@@ -84,10 +84,11 @@
         <div class="right-panel">
             <div class="panel-header">
                 <h3>분류 폴더 (Groups)</h3>
-                <div style="display:flex; gap:4px;">
-                    <button class="secondary-btn" style="padding: 4px 8px; font-size: 12px;" onclick="showPageLabExportDialog()">📤 내보내기</button>
-                    <button class="primary-btn" style="padding: 4px 8px; font-size: 12px;" onclick="addGroup()">+ 폴더</button>
-                </div>
+            </div>
+            <!-- Groups Toolbar -->
+            <div class="groups-toolbar" style="display: flex; gap: 6px; padding: 10px 12px; border-bottom: 1px solid var(--border-color); background: var(--bg-panel);">
+                <button class="secondary-btn" style="flex: 1; padding: 6px 4px; font-size: 12px; display: flex; align-items: center; justify-content: center; gap: 4px;" onclick="showPageLabExportDialog()">📤 내보내기</button>
+                <button class="primary-btn" style="flex: 1; padding: 6px 4px; font-size: 12px; display: flex; align-items: center; justify-content: center; gap: 4px;" onclick="addGroup()">+ 폴더</button>
             </div>
             <div class="groups-container" id="groups-container">
             </div>
