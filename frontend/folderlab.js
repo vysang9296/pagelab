@@ -1287,12 +1287,13 @@ function flShowContextMenu(event, path, isDir, treeType = 'local', id = null) {
     const openFolder = document.getElementById('fl-ctx-open-folder');
     const newFolder = document.getElementById('fl-ctx-new-folder');
     const renameItem = document.getElementById('fl-ctx-rename');
+    const duplicateItem = document.getElementById('fl-ctx-duplicate');
     const exportZip = document.getElementById('fl-ctx-export-zip');
     const exportSync = document.getElementById('fl-ctx-export-sync');
     const deleteItem = document.getElementById('fl-ctx-delete');
 
     // Reset all to none
-    [openFile, openFolder, newFolder, renameItem, exportZip, exportSync, deleteItem].forEach(el => {
+    [openFile, openFolder, newFolder, renameItem, duplicateItem, exportZip, exportSync, deleteItem].forEach(el => {
         if (el) el.style.display = 'none';
     });
 
@@ -1321,6 +1322,7 @@ function flShowContextMenu(event, path, isDir, treeType = 'local', id = null) {
         }
         if (renameItem) renameItem.style.display = 'block';
         if (deleteItem) deleteItem.style.display = 'block';
+        if (duplicateItem) duplicateItem.style.display = 'block';
     } else if (treeType === 'staging_root') {
         if (newFolder) newFolder.style.display = 'block';
     }
@@ -1443,6 +1445,10 @@ async function flExecuteContextMenu(action) {
             hideLoading();
         } else if (treeType === 'staging' && id) {
             flRemoveNodeFromStaging(id);
+        }
+    } else if (action === 'duplicate') {
+        if (treeType === 'staging' && id) {
+            flDuplicateStagingNode(id);
         }
     } else if (action === 'export_zip') {
         if (treeType === 'staging' && id) {
@@ -1699,4 +1705,62 @@ async function flExportStagingZip() {
         await pywebview.api.export_virtual_folder(filteredTree); 
         hideLoading(); 
     } else { alert("API 연결 대기 중입니다."); }
+}
+
+function flGenerateCopyName(originalName) {
+    const match = originalName.match(/(.*)\s\(복사본(?:\s(\d+))?\)$/);
+    if (match) {
+        const baseName = match[1];
+        const num = match[2] ? parseInt(match[2], 10) : 1;
+        return `${baseName} (복사본 ${num + 1})`;
+    } else {
+        return `${originalName} (복사본)`;
+    }
+}
+
+function flCloneStagingNode(node) {
+    const sId = (node.isDir ? 'sfolder_' : 'sfile_') + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+    const cloned = {
+        id: sId,
+        name: node.name,
+        isDir: node.isDir,
+        path: node.path,
+        size: node.size,
+        mtime: node.mtime
+    };
+    if (node.isDir && node.children) {
+        cloned.children = node.children.map(child => flCloneStagingNode(child));
+    }
+    return cloned;
+}
+
+function flFindStagingNodeAndParent(arr, targetId) {
+    for (let i = 0; i < arr.length; i++) {
+        if (arr[i].id === targetId) {
+            return { parentArray: arr, index: i };
+        }
+        if (arr[i].isDir && arr[i].children) {
+            const result = flFindStagingNodeAndParent(arr[i].children, targetId);
+            if (result) return result;
+        }
+    }
+    return null;
+}
+
+function flDuplicateStagingNode(id) {
+    const res = flFindStagingNodeAndParent(flStagingFolders, id);
+    if (!res) {
+        console.error("[FolderLab] Duplicate target not found: " + id);
+        return;
+    }
+    const { parentArray, index } = res;
+    const originalNode = parentArray[index];
+    
+    const clonedNode = flCloneStagingNode(originalNode);
+    clonedNode.name = flGenerateCopyName(originalNode.name);
+    
+    parentArray.splice(index + 1, 0, clonedNode);
+    
+    flRenderStagingTree();
+    flCheckMultiDelState();
 }
