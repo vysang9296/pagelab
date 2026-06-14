@@ -499,6 +499,7 @@ function loadPdfInIframe(pdfPath) {
                     height: 100%;
                     cursor: crosshair;
                     z-index: 10;
+                    pointer-events: none; /* Default: ignore mouse events to allow text selection */
                 }
                 /* Popover action menu */
                 .action-popover {
@@ -541,6 +542,19 @@ function loadPdfInIframe(pdfPath) {
         </head>
         <body>
             <div id="viewer-container"></div>
+
+            <div id="fl-mini-menu" style="position: absolute; display: none; background: #ffffff; border: 1px solid #dcdcdc; box-shadow: 0 4px 12px rgba(0,0,0,0.15); border-radius: 4px; padding: 4px 0; z-index: 10000; flex-direction: column; min-width: 130px; font-family: sans-serif;">
+                <div class="fl-mini-menu-item" id="btn-mini-copy" style="padding: 6px 12px; font-size: 12px; color: #333; cursor: pointer; text-align: left; transition: background 0.15s;">📋 단순 복사</div>
+                <div class="fl-mini-menu-item" id="btn-mini-refine-copy" style="padding: 6px 12px; font-size: 12px; color: #333; cursor: pointer; text-align: left; transition: background 0.15s;">✨ 띄어쓰기 정리 복사</div>
+                <div class="fl-mini-menu-item" id="btn-mini-send" style="padding: 6px 12px; font-size: 12px; color: #333; cursor: pointer; text-align: left; transition: background 0.15s;">📝 에디터로 보내기</div>
+            </div>
+            
+            <script>
+                // CSS hover support inside iframe dynamic document
+                const styleSheet = document.createElement("style");
+                styleSheet.innerText = ".fl-mini-menu-item:hover { background: #f3f2f1 !important; }";
+                document.head.appendChild(styleSheet);
+            </script>
             
             <div id="popover-menu" class="action-popover">
                 <button class="popover-btn" id="btn-crop">✂️ 이미지 크롭</button>
@@ -548,9 +562,70 @@ function loadPdfInIframe(pdfPath) {
                 <button class="popover-btn cancel" id="btn-cancel">취소</button>
             </div>
 
-            <script>
+             <script>
                 let pdfDoc = null;
                 let activeSelection = null; // { pageIndex, startX, startY, endX, endY, canvas }
+                let selectedText = "";
+                
+                document.addEventListener("mouseup", (e) => {
+                    // 크롭 모드(오버레이 pointer-events !== none)인 경우엔 드래그 텍스트 팝업 생략
+                    const overlay = document.querySelector('.selection-overlay');
+                    if (overlay && window.getComputedStyle(overlay).pointerEvents !== 'none') {
+                        return;
+                    }
+                    
+                    const selection = window.getSelection();
+                    const text = selection.toString().trim();
+                    const menu = document.getElementById("fl-mini-menu");
+                    
+                    if (text) {
+                        selectedText = text;
+                        menu.style.display = "flex";
+                        menu.style.left = (e.pageX + 10) + "px";
+                        menu.style.top = (e.pageY + 10) + "px";
+                    } else {
+                        if (menu && !menu.contains(e.target)) {
+                            menu.style.display = "none";
+                        }
+                    }
+                });
+                
+                document.addEventListener("mousedown", (e) => {
+                    const menu = document.getElementById("fl-mini-menu");
+                    if (menu && menu.style.display === "flex" && !menu.contains(e.target)) {
+                        menu.style.display = "none";
+                    }
+                });
+                
+                document.getElementById("btn-mini-copy").addEventListener("click", () => {
+                    navigator.clipboard.writeText(selectedText);
+                    document.getElementById("fl-mini-menu").style.display = "none";
+                });
+                
+                document.getElementById("btn-mini-refine-copy").addEventListener("click", () => {
+                    const refined = selectedText.replace(/\r?\n/g, ' ').replace(/\s+/g, ' ').trim();
+                    navigator.clipboard.writeText(refined);
+                    document.getElementById("fl-mini-menu").style.display = "none";
+                });
+                
+                document.getElementById("btn-mini-send").addEventListener("click", () => {
+                    const refined = selectedText.replace(/\r?\n/g, ' ').replace(/\s+/g, ' ').trim();
+                    window.parent.postMessage({
+                        type: "INSERT_TEXT",
+                        text: "\n" + refined + "\n"
+                    }, "*");
+                    document.getElementById("fl-mini-menu").style.display = "none";
+                    window.getSelection().removeAllRanges();
+                });
+                
+                window.addEventListener("message", (event) => {
+                    if (event.data && event.data.type === "SET_CROP_MODE") {
+                        const overlay = document.querySelector('.selection-overlay');
+                        if (overlay) {
+                            overlay.style.pointerEvents = event.data.enabled ? "auto" : "none";
+                        }
+                    }
+                });
                 
                 async function loadPdf() {
                     try {
