@@ -9,9 +9,12 @@ document.addEventListener("DOMContentLoaded", () => {
         tab.addEventListener("click", () => {
             const target = tab.dataset.tab;
             if (target === "notelab") {
-                if (!notelabEditorInstance) {
-                    initNoteLabEditor();
-                }
+                // Introduce a 150ms delay to allow DOM transition / repaint before measuring height
+                setTimeout(() => {
+                    if (!notelabEditorInstance) {
+                        initNoteLabEditor();
+                    }
+                }, 150);
             }
         });
     });
