@@ -70,5 +70,29 @@ class TestKordocAdapter(unittest.TestCase):
         self.assertTrue(res["success"])
         self.assertEqual(res["markdown"], "# Hello")
 
+    @patch('backend.kordoc_adapter.KordocParserAdapter.parse_to_markdown')
+    def test_api_parse_to_markdown_fallback_when_kordoc_fails(self, mock_parse):
+        # Simulate kordoc returning success=False
+        mock_parse.return_value = {"markdown": "", "metadata": {}, "success": False}
+        
+        from main import Api
+        api = Api()
+        
+        # Create a dummy txt file for parsing fallback
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        dummy_file = os.path.join(base_dir, "tests", "dummy_fallback.txt")
+        with open(dummy_file, "w", encoding="utf-8") as f:
+            f.write("이것은 대체 파서 테스트 본문입니다. 줄바꿈이 일어납니다.")
+            
+        try:
+            res = api.notelab_parse_to_markdown(dummy_file)
+            self.assertTrue(res["success"])
+            self.assertIn("대체 파서 테스트", res["markdown"])
+            self.assertIn("metadata", res)
+            self.assertTrue(res["metadata"].get("fallback", False))
+        finally:
+            if os.path.exists(dummy_file):
+                os.remove(dummy_file)
+
 if __name__ == '__main__':
     unittest.main()

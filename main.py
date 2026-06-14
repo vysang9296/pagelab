@@ -689,10 +689,36 @@ class Api:
             adapter = KordocParserAdapter()
             res = adapter.parse_to_markdown(file_path)
             res["pdf_path"] = pdf_path
+            
+            # Catch return value indicating parsing failure to fallback
+            if not res.get("success") or not res.get("markdown") or "### 오류" in res.get("markdown", ""):
+                raise RuntimeError("Kordoc parser returned success=False or error block")
             return res
         except Exception as e:
-            self.log(f"Kordoc parsing error: {e}")
-            return {"markdown": f"### 오류\n파싱 중 에러 발생: {str(e)}", "metadata": {}, "success": False, "pdf_path": pdf_path}
+            self.log(f"Kordoc parsing failed/skipped, using fallback DocumentParser: {e}")
+            from backend.document_parser import DocumentParser
+            from backend.refiner_cache import TextRefiner
+            try:
+                raw_text = DocumentParser.extract_text(file_path)
+                refiner = TextRefiner()
+                refined_text = refiner.refine(raw_text)
+                
+                filename = os.path.basename(file_path)
+                fallback_markdown = f"# {filename}\n\n{refined_text}"
+                return {
+                    "markdown": fallback_markdown,
+                    "metadata": {"fallback": True},
+                    "success": True,
+                    "pdf_path": pdf_path
+                }
+            except Exception as fallback_err:
+                self.log(f"Fallback parsing error: {fallback_err}")
+                return {
+                    "markdown": f"### 오류\n파싱 중 에러 발생: {str(e)}\nFallback 에러: {str(fallback_err)}", 
+                    "metadata": {}, 
+                    "success": False, 
+                    "pdf_path": pdf_path
+                }
 
     def notelab_patch_document(self, original_path, edited_markdown, output_path):
         """마크다운 편집본을 원본 문서 서식에 역패치하여 저장합니다."""
