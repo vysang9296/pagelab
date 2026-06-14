@@ -736,6 +736,19 @@ class Api:
         result = self._window.create_file_dialog(webview.OPEN_DIALOG)
         return self._parse_dialog_result(result)
 
+    def notelab_crop_pdf_page(self, pdf_path, page_idx, x, y, w, h, vault_dir):
+        """PDF 페이지 영역을 크롭하여 attachments 폴더에 이미지로 저장합니다."""
+        self.log(f"Crop requested: {pdf_path} page {page_idx} ({x}, {y}, {w}, {h})")
+        from backend.crop_engine import CropEngine
+        try:
+            attachments_dir = os.path.join(vault_dir, "attachments")
+            engine = CropEngine()
+            filename = engine.crop_pdf_page(pdf_path, page_idx, x, y, w, h, attachments_dir)
+            return {"success": True, "filename": filename, "relative_path": f"attachments/{filename}"}
+        except Exception as e:
+            self.log(f"Crop error: {e}")
+            return {"success": False, "error": str(e)}
+
     def choose_save_path(self, default_filename: str):
         """Ask user where to save, with default filename."""
         if not self._window: return None
