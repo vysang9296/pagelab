@@ -564,18 +564,28 @@ class Api:
         
     def process_files(self, files):
         results = []
+        from backend.refiner_cache import PdfCacheManager
+        cache_manager = PdfCacheManager()
+        
         for file_path in files:
             ext = os.path.splitext(file_path)[1].lower()
             pdf_path = file_path
             
             try:
                 if ext in ['.hwp', '.hwpx']:
-                    self.log(f"Converting {file_path}...")
-                    if not self._converter:
-                        self._converter = get_hwp_converter()
-                    temp_pdf_name = f"{uuid.uuid4()}.pdf"
-                    pdf_path = self._fm.get_temp_path(temp_pdf_name)
-                    self._converter.convert_to_pdf(file_path, pdf_path)
+                    cached_pdf = cache_manager.get_cached_pdf(file_path)
+                    if cached_pdf:
+                        self.log(f"Using cached PDF for {file_path} -> {cached_pdf}")
+                        pdf_path = cached_pdf
+                    else:
+                        self.log(f"Converting {file_path}...")
+                        if not self._converter:
+                            self._converter = get_hwp_converter()
+                        temp_pdf_name = f"{uuid.uuid4()}.pdf"
+                        temp_pdf_path = self._fm.get_temp_path(temp_pdf_name)
+                        self._converter.convert_to_pdf(file_path, temp_pdf_path)
+                        cache_manager.cache_pdf(file_path, temp_pdf_path)
+                        pdf_path = temp_pdf_path
                 elif ext in ['.png', '.jpg', '.jpeg']:
                     self.log(f"Converting image {file_path} to PDF...")
                     temp_pdf_name = f"{uuid.uuid4()}.pdf"
@@ -602,6 +612,17 @@ class Api:
                 self.js_alert(f"오류 발생 ({os.path.basename(file_path)}):\n{str(e)}")
 
         return results
+
+    def notelab_refine_text(self, text):
+        """정제 엔진을 호출하여 줄바꿈 붕괴 및 자모 분리를 보정합니다."""
+        from backend.refiner_cache import TextRefiner
+        try:
+            refiner = TextRefiner()
+            refined = refiner.refine(text)
+            return {"success": True, "refined_text": refined}
+        except Exception as e:
+            self.log(f"Refine error: {e}")
+            return {"success": False, "error": str(e), "refined_text": text}
 
     def choose_save_path(self, default_filename: str):
         """Ask user where to save, with default filename."""
