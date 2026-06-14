@@ -6,6 +6,9 @@
     <title>Public Binder - Page Lab</title>
     <link rel="stylesheet" href="style.css">
     <script src="Sortable.min.js"></script>
+    <!-- Toast UI Editor CDN -->
+    <link rel="stylesheet" href="https://uicdn.toast.com/editor/latest/toastui-editor.min.css" />
+    <script src="https://uicdn.toast.com/editor/latest/toastui-editor-all.min.js"></script>
 </head>
 <body>
 
@@ -28,8 +31,9 @@
         <div class="nav-left" style="display:flex; align-items:center; gap:24px;">
             <h1>Public Binder</h1>
             <div class="tabs-container" style="display:flex; gap:8px;">
-                <button class="tab-btn active" onclick="switchTab('pagelab')">Page Lab</button>
-                <button class="tab-btn" onclick="switchTab('folderlab')">Folder Lab</button>
+                <button class="tab-btn nav-tab active" data-tab="pagelab" onclick="switchTab('pagelab')">Page Lab</button>
+                <button class="tab-btn nav-tab" data-tab="folderlab" onclick="switchTab('folderlab')">Folder Lab</button>
+                <button class="tab-btn nav-tab" data-tab="notelab" onclick="switchTab('notelab')">Note Lab</button>
             </div>
         </div>
         <div class="nav-right" style="display:flex; gap:12px;">
@@ -251,6 +255,34 @@
         </div>
     </div>
 
+    <!-- Note Lab Workspace -->
+    <div id="notelab-workspace" class="workspace" style="display: none; flex-direction: column;">
+      <div class="notelab-workspace">
+        <!-- 좌측 문서 뷰어 영역 -->
+        <div class="notelab-pane notelab-viewer-pane" id="notelab-viewer">
+          <div class="notelab-viewer-header">
+            <span class="notelab-file-title">선택된 문서 없음</span>
+            <button id="notelab-close-doc-btn" class="btn">닫기</button>
+          </div>
+          <div class="notelab-viewer-body" id="notelab-pdf-container">
+            <!-- PDF.js Canvas 렌더링 영역 (Iframe 적용 예정) -->
+            <iframe id="notelab-pdf-iframe" style="width:100%; height:100%; border:none;"></iframe>
+          </div>
+        </div>
+        <!-- 구분 슬라이더 바 -->
+        <div class="notelab-resizer" id="notelab-resizer"></div>
+        <!-- 우측 마크다운 에디터 영역 -->
+        <div class="notelab-pane notelab-editor-pane" id="notelab-editor">
+          <div class="notelab-editor-header">
+            <button id="notelab-save-btn" class="btn btn-primary">저장 (.md)</button>
+            <button id="notelab-patch-btn" class="btn">한글(HWPX) 패치 저장</button>
+            <button id="notelab-compare-btn" class="btn">신구 비교</button>
+          </div>
+          <div id="notelab-markdown-editor" style="flex: 1; height: calc(100% - 40px);"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- Right Click Context Menu -->
     <div id="fl-context-menu" class="fl-context-menu">
         <div id="fl-ctx-open-file" class="fl-context-menu-item" onclick="flExecuteContextMenu('open_file')">🚀 파일 즉시 실행</div>
@@ -267,6 +299,7 @@
     <script src="app.js"></script>
     <script src="tab_manager.js"></script>
     <script src="folderlab.js"></script>
+    <script src="notelab.js"></script>
 </body>
 </html>
 

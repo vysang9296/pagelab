@@ -12,6 +12,7 @@ function switchTab(tabId) {
 
     const pagelabWorkspace = document.getElementById('pagelab-workspace');
     const folderlabWorkspace = document.getElementById('folderlab-workspace');
+    const notelabWorkspace = document.getElementById('notelab-workspace');
     const pagelabResetBtn = document.getElementById('pagelab-reset-btn');
     const folderlabResetBtn = document.getElementById('folderlab-reset-btn');
     
@@ -21,6 +22,7 @@ function switchTab(tabId) {
     if (tabId === 'pagelab') {
         pagelabWorkspace.style.display = 'flex';
         folderlabWorkspace.style.display = 'none';
+        if (notelabWorkspace) notelabWorkspace.style.display = 'none';
         pagelabResetBtn.style.display = 'inline-block';
         folderlabResetBtn.style.display = 'none';
         
@@ -30,6 +32,7 @@ function switchTab(tabId) {
     } else if (tabId === 'folderlab') {
         pagelabWorkspace.style.display = 'none';
         folderlabWorkspace.style.display = 'flex';
+        if (notelabWorkspace) notelabWorkspace.style.display = 'none';
         pagelabResetBtn.style.display = 'none';
         folderlabResetBtn.style.display = 'inline-block';
         
@@ -42,6 +45,16 @@ function switchTab(tabId) {
             flInitialized = true;
             flInit();
         }
+    } else if (tabId === 'notelab') {
+        pagelabWorkspace.style.display = 'none';
+        folderlabWorkspace.style.display = 'none';
+        if (notelabWorkspace) notelabWorkspace.style.display = 'flex';
+        pagelabResetBtn.style.display = 'none';
+        folderlabResetBtn.style.display = 'none';
+        
+        // Activate button
+        const btn = Array.from(tabBtns).find(b => b.innerText.includes('Note Lab'));
+        if(btn) btn.classList.add('active');
     }
 }
 

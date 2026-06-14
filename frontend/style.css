@@ -271,6 +271,78 @@ mark { background-color: #fce8e6; color: var(--danger-red); padding: 0 2px; bord
 .fl-index-status.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; display: flex; }
 .fl-index-status.error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; display: flex; }
 
+/* Note Lab Workspace & Pane Layout */
+.notelab-workspace {
+    display: flex;
+    width: 100%;
+    height: calc(100vh - 50px);
+    overflow: hidden;
+}
+.notelab-pane {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.notelab-viewer-pane {
+    flex: 1;
+    min-width: 200px;
+    background: #f0f2f5;
+    border-right: 1px solid #ddd;
+}
+.notelab-editor-pane {
+    width: 500px;
+    min-width: 200px;
+    background: #fff;
+}
+.notelab-resizer {
+    width: 6px;
+    background: #ccc;
+    cursor: col-resize;
+    transition: background 0.2s;
+}
+.notelab-resizer:hover {
+    background: #0078d4;
+}
+.notelab-viewer-header, .notelab-editor-header {
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 10px;
+    background: #eaeaea;
+    border-bottom: 1px solid #ccc;
+}
+.notelab-viewer-body {
+    flex: 1;
+    overflow: auto;
+    position: relative;
+}
+.notelab-file-title {
+    font-size: 13px;
+    font-weight: bold;
+    color: var(--text-primary);
+}
+.btn {
+    padding: 4px 10px;
+    font-size: 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background: #fff;
+    cursor: pointer;
+}
+.btn:hover {
+    background: #f1f3f4;
+}
+.btn-primary {
+    background: var(--primary-blue);
+    color: #fff;
+    border-color: var(--primary-blue);
+}
+.btn-primary:hover {
+    background: var(--primary-blue-hover);
+}
+
 /* Page Lab Page Checkbox & Zoom overlay styling */
 .page-card-checkbox-container {
     position: absolute;
