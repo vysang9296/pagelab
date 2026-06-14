@@ -749,6 +749,18 @@ class Api:
             self.log(f"Crop error: {e}")
             return {"success": False, "error": str(e)}
 
+    def notelab_ocr_image(self, image_path):
+        """이미지 경로를 받아 Windows Media OCR로 텍스트를 추출합니다."""
+        self.log(f"OCR request for image: {image_path}")
+        from backend.ocr_engine import WindowsOCREngine
+        try:
+            engine = WindowsOCREngine()
+            res = engine.ocr_from_image(image_path)
+            return res
+        except Exception as e:
+            self.log(f"OCR error: {e}")
+            return {"success": False, "error_code": "unhandled-exception", "text": "", "error": str(e)}
+
     def choose_save_path(self, default_filename: str):
         """Ask user where to save, with default filename."""
         if not self._window: return None
