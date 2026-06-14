@@ -93,10 +93,23 @@ function initNoteLabResizer() {
 }
 
 function initNoteLabButtons() {
+    const openDocBtn = document.getElementById("notelab-open-doc-btn");
     const saveBtn = document.getElementById("notelab-save-btn");
     const patchBtn = document.getElementById("notelab-patch-btn");
     const compareBtn = document.getElementById("notelab-compare-btn");
     const closeBtn = document.getElementById("notelab-close-doc-btn");
+
+    if (openDocBtn) {
+        openDocBtn.addEventListener("click", () => {
+            if (window.pywebview && window.pywebview.api && window.pywebview.api.choose_file) {
+                window.pywebview.api.choose_file().then(filePath => {
+                    if (filePath) {
+                        openInNoteLab(filePath);
+                    }
+                });
+            }
+        });
+    }
 
     if (saveBtn) {
         saveBtn.addEventListener("click", () => {
