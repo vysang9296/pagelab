@@ -94,5 +94,40 @@ class TestKordocAdapter(unittest.TestCase):
             if os.path.exists(dummy_file):
                 os.remove(dummy_file)
 
+    def test_api_parse_multiple_to_markdown(self):
+        from main import Api
+        api = Api()
+        import fitz
+        
+        # Create dummy PDF files
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        dummy1 = os.path.join(base_dir, "tests", "dummy_m1.pdf")
+        dummy2 = os.path.join(base_dir, "tests", "dummy_m2.pdf")
+        
+        doc1 = fitz.open()
+        doc1.new_page()
+        doc1.save(dummy1)
+        doc1.close()
+        
+        doc2 = fitz.open()
+        doc2.new_page()
+        doc2.save(dummy2)
+        doc2.close()
+            
+        res = None
+        try:
+            res = api.notelab_parse_multiple_to_markdown([dummy1, dummy2])
+            self.assertTrue(res["success"])
+            self.assertIn("dummy_m1.pdf", res["markdown"])
+            self.assertIn("dummy_m2.pdf", res["markdown"])
+            self.assertTrue(os.path.exists(res["pdf_path"]))
+        finally:
+            if os.path.exists(dummy1):
+                os.remove(dummy1)
+            if os.path.exists(dummy2):
+                os.remove(dummy2)
+            if res and res.get("success") and os.path.exists(res["pdf_path"]):
+                os.remove(res["pdf_path"])
+
 if __name__ == '__main__':
     unittest.main()

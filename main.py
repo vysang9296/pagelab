@@ -720,6 +720,97 @@ class Api:
                     "pdf_path": pdf_path
                 }
 
+    def notelab_parse_multiple_to_markdown(self, file_paths):
+        """다중 문서 파일들을 병합된 하나의 PDF와 결합된 마크다운 텍스트로 추출하여 반환합니다."""
+        self.log(f"Parsing multiple files: {file_paths}")
+        from backend.document_parser import DocumentParser
+        from backend.refiner_cache import TextRefiner
+        import uuid
+        
+        refiner = TextRefiner()
+        markdown_parts = []
+        
+        # 1. Parse texts sequentially and concatenate
+        for fp in file_paths:
+            try:
+                raw_text = DocumentParser.extract_text(fp)
+                refined = refiner.refine(raw_text)
+                filename = os.path.basename(fp)
+                markdown_parts.append(f"# {filename}\n\n{refined}\n")
+            except Exception as e:
+                self.log(f"Fallback parse error for {fp} in multi-parse: {e}")
+                
+        merged_markdown = "\n---\n".join(markdown_parts)
+        
+        # 2. Merge individual file PDFs using fitz
+        temp_pdfs = []
+        from backend.refiner_cache import PdfCacheManager
+        cache_manager = PdfCacheManager()
+        
+        try:
+            for fp in file_paths:
+                ext = os.path.splitext(fp)[1].lower()
+                if ext in ['.hwp', '.hwpx']:
+                    cached_pdf = cache_manager.get_cached_pdf(fp)
+                    if cached_pdf:
+                        temp_pdfs.append(cached_pdf)
+                    else:
+                        try:
+                            if not self._converter:
+                                self._converter = get_hwp_converter()
+                            temp_pdf_name = f"{uuid.uuid4()}.pdf"
+                            temp_pdf_path = self._fm.get_temp_path(temp_pdf_name)
+                            self._converter.convert_to_pdf(fp, temp_pdf_path)
+                            cache_manager.cache_pdf(fp, temp_pdf_path)
+                            temp_pdfs.append(temp_pdf_path)
+                        except Exception as hwp_e:
+                            self.log(f"HWP conversion error for {fp} in multi-parse: {hwp_e}")
+                elif ext == '.pdf':
+                    temp_pdfs.append(fp)
+                elif ext in ['.png', '.jpg', '.jpeg']:
+                    try:
+                        temp_pdf_name = f"{uuid.uuid4()}.pdf"
+                        temp_pdf_path = self._fm.get_temp_path(temp_pdf_name)
+                        import fitz
+                        img_doc = fitz.open(fp)
+                        pdf_bytes = img_doc.convert_to_pdf()
+                        img_doc.close()
+                        with open(temp_pdf_path, "wb") as f_pdf:
+                            f_pdf.write(pdf_bytes)
+                        temp_pdfs.append(temp_pdf_path)
+                    except Exception as img_e:
+                        self.log(f"Image conversion error for {fp} in multi-parse: {img_e}")
+            
+            # Merge PDFs using PyMuPDF (fitz)
+            pdf_path = ""
+            if temp_pdfs:
+                import fitz
+                merged_doc = fitz.open()
+                for pdf in temp_pdfs:
+                    with fitz.open(pdf) as sub_doc:
+                        merged_doc.insert_pdf(sub_doc)
+                
+                merged_pdf_name = f"merged_{uuid.uuid4().hex[:8]}.pdf"
+                merged_pdf_path = self._fm.get_temp_path(merged_pdf_name)
+                merged_doc.save(merged_pdf_path)
+                merged_doc.close()
+                pdf_path = merged_pdf_path
+                
+            return {
+                "success": True,
+                "markdown": merged_markdown,
+                "pdf_path": pdf_path,
+                "metadata": {"merged": True}
+            }
+        except Exception as e:
+            self.log(f"Multi-PDF merge failed: {e}")
+            return {
+                "success": False,
+                "markdown": merged_markdown,
+                "pdf_path": file_paths[0] if file_paths else "",
+                "error": str(e)
+            }
+
     def notelab_patch_document(self, original_path, edited_markdown, output_path):
         """마크다운 편집본을 원본 문서 서식에 역패치하여 저장합니다."""
         self.log(f"Kordoc patch requested from {original_path} to {output_path}")
