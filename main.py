@@ -72,6 +72,23 @@ class Api:
         self._fm = get_file_manager()
         self._converter = None  # Lazy Initialization to prevent 50% freeze on startup
         self._search_engine = get_search_engine()
+        
+        # Pre-flight checks
+        try:
+            from backend.refiner_cache import Diagnostics
+            kordoc_exe = "backend/bin/kordoc.exe"
+            diagnostics = Diagnostics.run_preflight_checks(kordoc_exe)
+            if not diagnostics["kordoc"]:
+                self.log("[Diagnostic] WARNING: kordoc.exe pre-flight check failed.")
+            else:
+                self.log("[Diagnostic] kordoc.exe pre-flight check passed.")
+            
+            if not diagnostics["ocr_korean"]:
+                self.log("[Diagnostic] WARNING: Windows Media OCR Korean pack is missing.")
+            else:
+                self.log("[Diagnostic] WinRT OCR Korean pack check passed.")
+        except Exception as e:
+            self.log(f"[Diagnostic] Error during preflight checks: {e}")
 
     def evaluate_js(self, js_code):
         if self._window:
@@ -623,6 +640,101 @@ class Api:
         except Exception as e:
             self.log(f"Refine error: {e}")
             return {"success": False, "error": str(e), "refined_text": text}
+
+    def notelab_get_preflight_status(self):
+        """kordoc 및 OCR 사전진단 상태를 프론트엔드로 즉시 반환합니다."""
+        from backend.refiner_cache import Diagnostics
+        kordoc_exe = "backend/bin/kordoc.exe"
+        return Diagnostics.run_preflight_checks(kordoc_exe)
+
+    def notelab_parse_to_markdown(self, file_path):
+        """Kordoc을 사용하여 HWP/PDF 파일을 마크다운으로 파싱하고 필요시 캐시 PDF 경로를 반환합니다."""
+        self.log(f"Kordoc parsing requested for {file_path}")
+        from backend.refiner_cache import PdfCacheManager
+        cache_manager = PdfCacheManager()
+        
+        pdf_path = file_path
+        ext = os.path.splitext(file_path)[1].lower()
+        if ext in ['.hwp', '.hwpx']:
+            cached_pdf = cache_manager.get_cached_pdf(file_path)
+            if cached_pdf:
+                pdf_path = cached_pdf
+            else:
+                try:
+                    if not self._converter:
+                        self._converter = get_hwp_converter()
+                    temp_pdf_name = f"{uuid.uuid4()}.pdf"
+                    temp_pdf_path = self._fm.get_temp_path(temp_pdf_name)
+                    self._converter.convert_to_pdf(file_path, temp_pdf_path)
+                    cache_manager.cache_pdf(file_path, temp_pdf_path)
+                    pdf_path = temp_pdf_path
+                except Exception as e:
+                    self.log(f"PDF conversion failed: {e}")
+        elif ext in ['.png', '.jpg', '.jpeg']:
+            try:
+                temp_pdf_name = f"{uuid.uuid4()}.pdf"
+                temp_pdf_path = self._fm.get_temp_path(temp_pdf_name)
+                import fitz
+                img_doc = fitz.open(file_path)
+                pdf_bytes = img_doc.convert_to_pdf()
+                img_doc.close()
+                with open(temp_pdf_path, "wb") as f_pdf:
+                    f_pdf.write(pdf_bytes)
+                pdf_path = temp_pdf_path
+            except Exception as e:
+                self.log(f"Image conversion failed: {e}")
+                
+        from backend.kordoc_adapter import KordocParserAdapter
+        try:
+            adapter = KordocParserAdapter()
+            res = adapter.parse_to_markdown(file_path)
+            res["pdf_path"] = pdf_path
+            return res
+        except Exception as e:
+            self.log(f"Kordoc parsing error: {e}")
+            return {"markdown": f"### 오류\n파싱 중 에러 발생: {str(e)}", "metadata": {}, "success": False, "pdf_path": pdf_path}
+
+    def notelab_patch_document(self, original_path, edited_markdown, output_path):
+        """마크다운 편집본을 원본 문서 서식에 역패치하여 저장합니다."""
+        self.log(f"Kordoc patch requested from {original_path} to {output_path}")
+        from backend.kordoc_adapter import KordocParserAdapter
+        try:
+            adapter = KordocParserAdapter()
+            success = adapter.patch_document(original_path, edited_markdown, output_path)
+            return {"success": success}
+        except Exception as e:
+            self.log(f"Kordoc patch error: {e}")
+            return {"success": False, "error": str(e)}
+
+    def notelab_compare_documents(self, path_old, path_new):
+        """두 문서의 신구대조표 마크다운을 반환합니다."""
+        self.log(f"Kordoc compare requested: {path_old} vs {path_new}")
+        from backend.kordoc_adapter import KordocParserAdapter
+        try:
+            adapter = KordocParserAdapter()
+            diff_md = adapter.compare_documents(path_old, path_new)
+            return {"success": True, "compare_result": diff_md}
+        except Exception as e:
+            self.log(f"Kordoc compare error: {e}")
+            return {"success": False, "error": str(e), "compare_result": ""}
+
+    def notelab_save_markdown(self, save_path, content):
+        """마크다운 콘텐츠를 지정된 파일 경로에 로컬 저장합니다."""
+        self.log(f"Saving markdown note to: {save_path}")
+        try:
+            os.makedirs(os.path.dirname(save_path), exist_ok=True)
+            with open(save_path, "w", encoding="utf-8") as f:
+                f.write(content)
+            return {"success": True}
+        except Exception as e:
+            self.log(f"Save markdown error: {e}")
+            return {"success": False, "error": str(e)}
+
+    def choose_file(self):
+        """파일 열기 대화상자를 노출하고 선택된 단일 파일 경로를 반환합니다."""
+        if not self._window: return None
+        result = self._window.create_file_dialog(webview.OPEN_DIALOG)
+        return self._parse_dialog_result(result)
 
     def choose_save_path(self, default_filename: str):
         """Ask user where to save, with default filename."""

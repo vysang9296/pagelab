@@ -55,5 +55,20 @@ class TestKordocAdapter(unittest.TestCase):
         self.assertIn("신구대조표", diff_md)
         mock_run.assert_called_once()
 
+    @patch('backend.kordoc_adapter.KordocParserAdapter.parse_to_markdown')
+    @patch('os.path.getsize')
+    @patch('os.path.getmtime')
+    @patch('os.path.exists')
+    def test_api_parse_to_markdown(self, mock_exists, mock_getmtime, mock_getsize, mock_parse):
+        mock_exists.return_value = True
+        mock_getmtime.return_value = 12345.0
+        mock_getsize.return_value = 1000
+        mock_parse.return_value = {"markdown": "# Hello", "metadata": {}, "success": True}
+        from main import Api
+        api = Api()
+        res = api.notelab_parse_to_markdown("dummy.hwpx")
+        self.assertTrue(res["success"])
+        self.assertEqual(res["markdown"], "# Hello")
+
 if __name__ == '__main__':
     unittest.main()
