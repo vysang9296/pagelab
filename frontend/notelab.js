@@ -48,6 +48,7 @@ function initNoteLabEditor() {
                 }
             }
         });
+        editorEl.classList.add("notelab-editor-only");
     }
 }
 
@@ -280,6 +281,59 @@ function initNoteLabButtons() {
             });
         });
     }
+    
+    // [✂️ 영역 크롭] & [👁️ 미리보기] 버튼 리스너 바인딩
+    const cropBtn = document.getElementById("notelab-toggle-crop-btn");
+    if (cropBtn) {
+        cropBtn.addEventListener("click", () => {
+            const isActive = cropBtn.classList.contains("active");
+            setCropOverlayMode(!isActive);
+        });
+    }
+    
+    const previewBtn = document.getElementById("notelab-toggle-preview-btn");
+    if (previewBtn) {
+        previewBtn.addEventListener("click", () => {
+            const editorWrapper = document.getElementById("notelab-markdown-editor");
+            if (editorWrapper) {
+                const isPreview = editorWrapper.classList.contains("notelab-preview-only");
+                if (isPreview) {
+                    editorWrapper.classList.remove("notelab-preview-only");
+                    editorWrapper.classList.add("notelab-editor-only");
+                    previewBtn.style.background = "";
+                    previewBtn.style.color = "";
+                } else {
+                    editorWrapper.classList.remove("notelab-editor-only");
+                    editorWrapper.classList.add("notelab-preview-only");
+                    previewBtn.style.background = "#1a73e8";
+                    previewBtn.style.color = "white";
+                }
+            }
+        });
+    }
+}
+
+function setCropOverlayMode(enabled) {
+    const iframe = document.getElementById("notelab-pdf-iframe");
+    if (iframe && iframe.contentWindow) {
+        iframe.contentWindow.postMessage({
+            type: "SET_CROP_MODE",
+            enabled: enabled
+        }, "*");
+    }
+    
+    const cropBtn = document.getElementById("notelab-toggle-crop-btn");
+    if (cropBtn) {
+        if (enabled) {
+            cropBtn.classList.add("active");
+            cropBtn.style.background = "#d83b01";
+            cropBtn.style.color = "white";
+        } else {
+            cropBtn.classList.remove("active");
+            cropBtn.style.background = "";
+            cropBtn.style.color = "";
+        }
+    }
 }
 
 function initNoteLabPostMessageListener() {
@@ -287,25 +341,32 @@ function initNoteLabPostMessageListener() {
         if (event.data && event.data.type === "CROP_SELECTION") {
             const { pageIndex, coords } = event.data;
             triggerOcrOrCrop(pageIndex, coords);
+            // 크롭 시작하므로 오버레이 끎
+            setCropOverlayMode(false);
+        } else if (event.data && event.data.type === "INSERT_TEXT") {
+            if (notelabEditorInstance) {
+                notelabEditorInstance.insertText(event.data.text);
+            }
         }
     });
 }
 
 function triggerOcrOrCrop(pageIndex, coords) {
-    if (!currentOpenedDocPath) return;
+    if (!currentOpenedDocPath) {
+        setCropOverlayMode(false);
+        return;
+    }
     
-    // Convert currentOpenedDocPath backslash to slash or keep it
     if (window.pywebview && window.pywebview.api) {
         showLoading(coords.mode === "ocr" ? "OCR 텍스트 추출 중..." : "이미지 영역 크롭 중...");
         window.pywebview.api.notelab_crop_pdf_page(currentOpenedDocPath, pageIndex, coords.x, coords.y, coords.w, coords.h, "frontend").then(res => {
             if (res && res.success) {
                 if (coords.mode === "ocr") {
                     const relativeImagePath = "attachments/" + res.filename;
-                    // Trigger OCR on backend
                     window.pywebview.api.notelab_ocr_image(relativeImagePath).then(ocrRes => {
                         hideLoading();
+                        setCropOverlayMode(false);
                         if (ocrRes && ocrRes.success) {
-                            // Refine extracted text
                             window.pywebview.api.notelab_refine_text(ocrRes.text).then(refineRes => {
                                 const textToInsert = refineRes && refineRes.success ? refineRes.refined_text : ocrRes.text;
                                 if (notelabEditorInstance) {
@@ -321,10 +382,12 @@ function triggerOcrOrCrop(pageIndex, coords) {
                         }
                     }).catch(err => {
                         hideLoading();
+                        setCropOverlayMode(false);
                         alert("OCR 실행 오류: " + err);
                     });
                 } else {
                     hideLoading();
+                    setCropOverlayMode(false);
                     const mdImage = `\n![crop](${res.relative_path})\n`;
                     if (notelabEditorInstance) {
                         notelabEditorInstance.insertText(mdImage);
@@ -332,12 +395,16 @@ function triggerOcrOrCrop(pageIndex, coords) {
                 }
             } else {
                 hideLoading();
+                setCropOverlayMode(false);
                 alert("크롭 처리 실패: " + (res ? res.error : "알 수 없는 오류"));
             }
         }).catch(err => {
             hideLoading();
+            setCropOverlayMode(false);
             alert("크롭 실행 오류: " + err);
         });
+    } else {
+        setCropOverlayMode(false);
     }
 }
 
