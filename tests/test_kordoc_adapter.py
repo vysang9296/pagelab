@@ -129,5 +129,31 @@ class TestKordocAdapter(unittest.TestCase):
             if res and res.get("success") and os.path.exists(res["pdf_path"]):
                 os.remove(res["pdf_path"])
 
+    def test_api_get_pdf_base64(self):
+        from main import Api
+        api = Api()
+        import fitz
+        
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        dummy = os.path.join(base_dir, "tests", "dummy_base64.pdf")
+        
+        doc = fitz.open()
+        doc.new_page()
+        doc.save(dummy)
+        doc.close()
+        
+        try:
+            res = api.notelab_get_pdf_base64(dummy)
+            self.assertTrue(res["success"])
+            self.assertTrue(len(res["base64"]) > 0)
+            
+            # Non-existent file
+            res_fail = api.notelab_get_pdf_base64("non_existent_file.pdf")
+            self.assertFalse(res_fail["success"])
+        finally:
+            if os.path.exists(dummy):
+                os.remove(dummy)
+
 if __name__ == '__main__':
     unittest.main()
+

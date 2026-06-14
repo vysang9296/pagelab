@@ -811,6 +811,20 @@ class Api:
                 "error": str(e)
             }
 
+    def notelab_get_pdf_base64(self, pdf_path):
+        """PDF 파일의 binary 데이터를 Base64 string으로 반환합니다."""
+        self.log(f"Fetching PDF base64 for: {pdf_path}")
+        import base64
+        try:
+            if not os.path.exists(pdf_path):
+                return {"success": False, "error": "파일이 존재하지 않습니다."}
+            with open(pdf_path, "rb") as f:
+                encoded = base64.b64encode(f.read()).decode("utf-8")
+            return {"success": True, "base64": encoded}
+        except Exception as e:
+            self.log(f"PDF base64 fetch error: {e}")
+            return {"success": False, "error": str(e)}
+
     def notelab_patch_document(self, original_path, edited_markdown, output_path):
         """마크다운 편집본을 원본 문서 서식에 역패치하여 저장합니다."""
         self.log(f"Kordoc patch requested from {original_path} to {output_path}")

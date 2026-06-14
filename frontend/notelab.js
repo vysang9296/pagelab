@@ -1,5 +1,6 @@
 let notelabEditorInstance = null;
 let currentOpenedDocPath = "";
+let currentOpenedDocPaths = [];
 let systemPreflightStatus = { kordoc: false, ocr_korean: false };
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -206,6 +207,7 @@ function initNoteLabButtons() {
     if (closeBtn) {
         closeBtn.addEventListener("click", () => {
             currentOpenedDocPath = "";
+            currentOpenedDocPaths = [];
             document.querySelector('.notelab-file-title').innerText = "선택된 문서 없음";
             if (notelabEditorInstance) {
                 notelabEditorInstance.setMarkdown("");
@@ -214,6 +216,36 @@ function initNoteLabButtons() {
             if (iframe) {
                 iframe.src = "about:blank";
             }
+        });
+    }
+
+    const parseAllBtn = document.getElementById("notelab-parse-all-btn");
+    if (parseAllBtn) {
+        parseAllBtn.addEventListener("click", () => {
+            if (currentOpenedDocPaths.length === 0) {
+                alert("텍스트를 추출할 문서가 열려있지 않습니다.");
+                return;
+            }
+            showLoading("전체 텍스트 파싱 및 변환 중...");
+            
+            const promise = currentOpenedDocPaths.length === 1
+                ? window.pywebview.api.notelab_parse_to_markdown(currentOpenedDocPaths[0])
+                : window.pywebview.api.notelab_parse_multiple_to_markdown(currentOpenedDocPaths);
+                
+            promise.then(res => {
+                hideLoading();
+                if (res && res.success) {
+                    if (notelabEditorInstance) {
+                        notelabEditorInstance.setMarkdown(res.markdown);
+                    }
+                    alert("전체 텍스트 가져오기가 완료되었습니다.");
+                } else {
+                    alert("텍스트 추출 실패: " + (res ? (res.error || res.markdown) : "알 수 없는 오류"));
+                }
+            }).catch(err => {
+                hideLoading();
+                alert("텍스트 추출 중 오류 발생: " + err);
+            });
         });
     }
 
@@ -517,13 +549,26 @@ function loadPdfInIframe(pdfPath) {
             </div>
 
             <script>
-                const pdfUrl = 'file:///${escapedPdfPath.replace(/\\\\/g, '/')}';
                 let pdfDoc = null;
                 let activeSelection = null; // { pageIndex, startX, startY, endX, endY, canvas }
                 
                 async function loadPdf() {
                     try {
-                        const loadingTask = pdfjsLib.getDocument(pdfUrl);
+                        const pdfPath = "${escapedPdfPath}";
+                        const res = await window.parent.pywebview.api.notelab_get_pdf_base64(pdfPath);
+                        if (!res || !res.success) {
+                            throw new Error(res ? res.error : "PDF 데이터를 가져오지 못했습니다.");
+                        }
+                        
+                        // Decode Base64 to Uint8Array
+                        const raw = window.atob(res.base64);
+                        const rawLength = raw.length;
+                        const array = new Uint8Array(new ArrayBuffer(rawLength));
+                        for(let i = 0; i < rawLength; i++) {
+                            array[i] = raw.charCodeAt(i);
+                        }
+                        
+                        const loadingTask = pdfjsLib.getDocument({ data: array });
                         pdfDoc = await loadingTask.promise;
                         renderAllPages();
                     } catch (e) {
@@ -741,9 +786,12 @@ function loadPdfInIframe(pdfPath) {
 
 function openInNoteLab(filePath) {
     currentOpenedDocPath = filePath;
+    currentOpenedDocPaths = [filePath];
+    const filename = filePath.split(/[\\/]/).pop();
+    
     const titleEl = document.querySelector('.notelab-file-title');
     if (titleEl) {
-        titleEl.innerText = filePath.split(/[\\/]/).pop();
+        titleEl.innerText = filename;
     }
     
     // Switch to notelab tab
@@ -752,20 +800,22 @@ function openInNoteLab(filePath) {
         notelabTabBtn.click();
     }
     
+    // Initialize editor with title only as user requested (do not populate text instantly)
+    if (notelabEditorInstance) {
+        notelabEditorInstance.setMarkdown(`# ${filename}\n\n`);
+    }
+    
     if (window.pywebview && window.pywebview.api) {
-        showLoading("문서 파싱 및 로딩 중...");
+        showLoading("문서 로딩 중...");
         window.pywebview.api.notelab_parse_to_markdown(filePath).then(res => {
             hideLoading();
             if (res && res.success) {
-                if (notelabEditorInstance) {
-                    notelabEditorInstance.setMarkdown(res.markdown);
-                }
                 if (res.pdf_path) {
                     loadPdfInIframe(res.pdf_path);
                 }
             } else {
                 if (notelabEditorInstance) {
-                    notelabEditorInstance.setMarkdown("# 파싱 실패\n" + (res ? res.markdown : ""));
+                    notelabEditorInstance.setMarkdown(`# ${filename}\n\n# 파싱 실패\n` + (res ? res.markdown : ""));
                 }
                 if (res && res.pdf_path) {
                     loadPdfInIframe(res.pdf_path);
@@ -808,6 +858,7 @@ window.triggerOcrForArea = function(imagePath) {
 
 function openMultipleInNoteLab(filePaths) {
     if (!filePaths || filePaths.length === 0) return;
+    currentOpenedDocPaths = filePaths;
     
     // Switch to notelab tab
     const notelabTabBtn = document.querySelector('[data-tab="notelab"]');
@@ -820,24 +871,25 @@ function openMultipleInNoteLab(filePaths) {
         titleEl.innerText = `${filePaths.length}개 문서 병합본`;
     }
     
+    // Initialize editor with title only as user requested
+    if (notelabEditorInstance) {
+        notelabEditorInstance.setMarkdown(`# 문서 병합본\n\n`);
+    }
+    
     if (window.pywebview && window.pywebview.api) {
-        showLoading("다중 문서 병합 및 파싱 중...");
+        showLoading("다중 문서 병합 중...");
         window.pywebview.api.notelab_parse_multiple_to_markdown(filePaths).then(res => {
             hideLoading();
             if (res && res.success) {
                 // 다중 문서에서는 크롭/OCR을 위해 병합된 PDF 경로를 currentOpenedDocPath로 사용합니다.
                 currentOpenedDocPath = res.pdf_path; 
-                
-                if (notelabEditorInstance) {
-                    notelabEditorInstance.setMarkdown(res.markdown);
-                }
                 if (res.pdf_path) {
                     loadPdfInIframe(res.pdf_path);
                 }
             } else {
                 currentOpenedDocPath = "";
                 if (notelabEditorInstance) {
-                    notelabEditorInstance.setMarkdown("# 병합 파싱 실패\n" + (res ? (res.error || res.markdown) : ""));
+                    notelabEditorInstance.setMarkdown(`# 문서 병합본\n\n# 병합 파싱 실패\n` + (res ? (res.error || res.markdown) : ""));
                 }
                 if (res && res.pdf_path) {
                     loadPdfInIframe(res.pdf_path);
