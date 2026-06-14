@@ -1324,9 +1324,10 @@ function flShowContextMenu(event, path, isDir, treeType = 'local', id = null) {
     const exportSync = document.getElementById('fl-ctx-export-sync');
     const deleteItem = document.getElementById('fl-ctx-delete');
     const openPageLab = document.getElementById('fl-ctx-open-pagelab');
+    const openNoteLab = document.getElementById('fl-ctx-open-notelab');
 
     // Reset all to none
-    [openFile, openFolder, newFolder, renameItem, duplicateItem, exportZip, exportSync, deleteItem, openPageLab].forEach(el => {
+    [openFile, openFolder, newFolder, renameItem, duplicateItem, exportZip, exportSync, deleteItem, openPageLab, openNoteLab].forEach(el => {
         if (el) el.style.display = 'none';
     });
 
@@ -1360,12 +1361,17 @@ function flShowContextMenu(event, path, isDir, treeType = 'local', id = null) {
         if (newFolder) newFolder.style.display = 'block';
     }
 
-    // Page Lab integration condition
+    // Page Lab & Note Lab integration condition
     const isEligibleFile = path && (path.toLowerCase().endsWith('.pdf') || path.toLowerCase().endsWith('.hwp') || path.toLowerCase().endsWith('.hwpx'));
     const isStagingFolder = treeType === 'staging' && isDir;
     if (openPageLab) {
         if (isStagingFolder || (!isDir && isEligibleFile)) {
             openPageLab.style.display = 'block';
+        }
+    }
+    if (openNoteLab) {
+        if (isStagingFolder || (!isDir && isEligibleFile)) {
+            openNoteLab.style.display = 'block';
         }
     }
 
@@ -1404,6 +1410,67 @@ async function flExecuteContextMenu(action) {
     } else if (action === 'open_folder') {
         if (path && pywebview && pywebview.api && pywebview.api.fl_open_folder_in_explorer) {
             await pywebview.api.fl_open_folder_in_explorer(path);
+        }
+    } else if (action === 'open_notelab') {
+        let paths = [];
+        if (treeType === 'staging' && isDir && id) {
+            function findNode(arr, targetId) {
+                for (const node of arr) {
+                    if (node.id === targetId) return node;
+                    if (node.isDir && node.children) {
+                        const found = findNode(node.children, targetId);
+                        if (found) return found;
+                    }
+                }
+                return null;
+            }
+            function collectPaths(node, result = []) {
+                if (!node.isDir) {
+                    if (node.path) result.push(node.path);
+                } else if (node.children) {
+                    node.children.forEach(child => collectPaths(child, result));
+                }
+                return result;
+            }
+            const targetNode = findNode(flStagingFolders, id);
+            if (targetNode) {
+                collectPaths(targetNode, paths);
+            }
+        } else {
+            const checkedItems = document.querySelectorAll(`.fl-${treeType}-tree .fl-tree-checkbox:checked`);
+            let checkedPaths = [];
+            if (checkedItems.length > 0) {
+                checkedItems.forEach(chk => {
+                    const itemEl = chk.closest('.fl-tree-item');
+                    if (itemEl) {
+                        const itemPath = itemEl.dataset.path;
+                        const itemIsDir = itemEl.dataset.isdir === 'true';
+                        if (!itemIsDir && itemPath) {
+                            const lowerPath = itemPath.toLowerCase();
+                            if (lowerPath.endsWith('.pdf') || lowerPath.endsWith('.hwp') || lowerPath.endsWith('.hwpx')) {
+                                checkedPaths.push(itemPath);
+                            }
+                        }
+                    }
+                });
+            }
+            if (checkedPaths.length > 0 && (checkedPaths.includes(path) || !path)) {
+                paths = checkedPaths;
+            } else if (path) {
+                paths = [path];
+            }
+        }
+
+        if (paths.length > 0) {
+            if (paths.length === 1) {
+                if (typeof window.openInNoteLab === 'function') {
+                    window.openInNoteLab(paths[0]);
+                }
+            } else {
+                if (typeof window.openMultipleInNoteLab === 'function') {
+                    window.openMultipleInNoteLab(paths);
+                }
+            }
         }
     } else if (action === 'open_pagelab') {
         let paths = [];
