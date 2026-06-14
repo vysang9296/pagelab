@@ -805,7 +805,7 @@ class Api:
         from backend.ocr_engine import WindowsOCREngine
         try:
             # If path is relative to attachments, resolve to absolute frontend/attachments/
-            if not os.isabs(image_path) and image_path.startswith("attachments"):
+            if not os.path.isabs(image_path) and image_path.startswith("attachments"):
                 base_dir = os.path.dirname(os.path.abspath(__file__))
                 image_path = os.path.join(base_dir, "frontend", image_path)
                 
