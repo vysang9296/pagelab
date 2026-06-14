@@ -611,6 +611,7 @@ function showGroupContextMenu(e, groupId) {
             <div class="context-menu-item" onclick="duplicateGroup('${groupId}')">👯 폴더 복제 (Duplicate)</div>
             <div class="context-menu-item" onclick="exportGroupMerge()">🗂️ 통합 다운로드 (PDF)</div>
             <div class="context-menu-item" onclick="exportGroupSeparate()">📑 파일별 다운로드 (ZIP)</div>
+            <div class="context-menu-item" onclick="openGroupInNoteLab('${groupId}')">📝 Note Lab에서 편집하기</div>
         `;
     } else {
         html = `
@@ -619,6 +620,7 @@ function showGroupContextMenu(e, groupId) {
             <div class="context-menu-item" onclick="duplicateSelectedGroups()">👯 폴더 일괄 복제 (Duplicate)</div>
             <div class="context-menu-item" onclick="exportMultiMerge()">🗂️ 다중 통합 다운로드 (통합PDF 모음 ZIP)</div>
             <div class="context-menu-item" onclick="exportMultiSeparate()">📑 다중 파일별 다운로드 (이중 ZIP)</div>
+            <div class="context-menu-item" onclick="openMultipleGroupsInNoteLab()">📝 Note Lab에서 편집하기</div>
         `;
     }
     showMenu(e, html);
@@ -917,3 +919,84 @@ function showPageLabExportDialog() {
     modal.appendChild(dialog);
     document.body.appendChild(modal);
 }
+
+// -------------------------------------------------------------
+// Note Lab Integration from Page Lab Group
+// -------------------------------------------------------------
+function getGroupOriginalPaths(gId) {
+    const paths = [];
+    const seen = new Set();
+    const group = groups[gId];
+    if (!group || !group.pageIds) return paths;
+    
+    group.pageIds.forEach(pId => {
+        const p = pagePool[pId];
+        if (p && !p.excluded && !p.isBlank) {
+            const file = filesData[p.fileId];
+            if (file && file.original_path && !seen.has(file.original_path)) {
+                seen.add(file.original_path);
+                paths.push(file.original_path);
+            }
+        }
+    });
+    return paths;
+}
+
+function openGroupInNoteLab(gId) {
+    const paths = getGroupOriginalPaths(gId);
+    if (paths.length === 0) {
+        alert("이 폴더에 Note Lab으로 내보낼 유효한 문서가 없습니다.");
+        return;
+    }
+    if (paths.length === 1) {
+        if (typeof window.openInNoteLab === 'function') {
+            window.openInNoteLab(paths[0]);
+        } else {
+            alert("Note Lab 모듈이 활성화되지 않았습니다.");
+        }
+    } else {
+        if (typeof window.openMultipleInNoteLab === 'function') {
+            window.openMultipleInNoteLab(paths);
+        } else {
+            alert("Note Lab 모듈이 활성화되지 않았습니다.");
+        }
+    }
+}
+
+function openMultipleGroupsInNoteLab() {
+    const selectedGIds = Array.from(selectedGroupIds);
+    if (selectedGIds.length === 0) return;
+    
+    const allPaths = [];
+    const seen = new Set();
+    
+    selectedGIds.forEach(gId => {
+        const paths = getGroupOriginalPaths(gId);
+        paths.forEach(p => {
+            if (!seen.has(p)) {
+                seen.add(p);
+                allPaths.push(p);
+            }
+        });
+    });
+    
+    if (allPaths.length === 0) {
+        alert("선택한 폴더들에 Note Lab으로 내보낼 유효한 문서가 없습니다.");
+        return;
+    }
+    
+    if (allPaths.length === 1) {
+        if (typeof window.openInNoteLab === 'function') {
+            window.openInNoteLab(allPaths[0]);
+        } else {
+            alert("Note Lab 모듈이 활성화되지 않았습니다.");
+        }
+    } else {
+        if (typeof window.openMultipleInNoteLab === 'function') {
+            window.openMultipleInNoteLab(allPaths);
+        } else {
+            alert("Note Lab 모듈이 활성화되지 않았습니다.");
+        }
+    }
+}
+

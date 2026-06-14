@@ -805,3 +805,51 @@ window.triggerOcrForArea = function(imagePath) {
         });
     }
 };
+
+function openMultipleInNoteLab(filePaths) {
+    if (!filePaths || filePaths.length === 0) return;
+    
+    // Switch to notelab tab
+    const notelabTabBtn = document.querySelector('[data-tab="notelab"]');
+    if (notelabTabBtn) {
+        notelabTabBtn.click();
+    }
+    
+    const titleEl = document.querySelector('.notelab-file-title');
+    if (titleEl) {
+        titleEl.innerText = `${filePaths.length}개 문서 병합본`;
+    }
+    
+    if (window.pywebview && window.pywebview.api) {
+        showLoading("다중 문서 병합 및 파싱 중...");
+        window.pywebview.api.notelab_parse_multiple_to_markdown(filePaths).then(res => {
+            hideLoading();
+            if (res && res.success) {
+                // 다중 문서에서는 크롭/OCR을 위해 병합된 PDF 경로를 currentOpenedDocPath로 사용합니다.
+                currentOpenedDocPath = res.pdf_path; 
+                
+                if (notelabEditorInstance) {
+                    notelabEditorInstance.setMarkdown(res.markdown);
+                }
+                if (res.pdf_path) {
+                    loadPdfInIframe(res.pdf_path);
+                }
+            } else {
+                currentOpenedDocPath = "";
+                if (notelabEditorInstance) {
+                    notelabEditorInstance.setMarkdown("# 병합 파싱 실패\n" + (res ? (res.error || res.markdown) : ""));
+                }
+                if (res && res.pdf_path) {
+                    loadPdfInIframe(res.pdf_path);
+                }
+            }
+        }).catch(err => {
+            hideLoading();
+            currentOpenedDocPath = "";
+            alert("다중 문서 로딩 중 오류 발생: " + err);
+        });
+    }
+}
+
+window.openMultipleInNoteLab = openMultipleInNoteLab;
+
