@@ -50,5 +50,44 @@ class TestRefinerCache(unittest.TestCase):
                 import shutil
                 shutil.rmtree("tests/dummy_cache")
 
+    def test_notelab_save_markdown_with_attachments(self):
+        from main import Api
+        api = Api()
+        
+        # Create a dummy attachment file in the source directory
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        src_dir = os.path.join(base_dir, "frontend", "attachments")
+        os.makedirs(src_dir, exist_ok=True)
+        dummy_crop = os.path.join(src_dir, "test_crop.png")
+        with open(dummy_crop, "w") as f:
+            f.write("dummy-image-data")
+            
+        # Target save path
+        temp_save_path = os.path.join(base_dir, "tests", "notes", "test_note.md")
+        content_with_image = "# Note\n\n![crop](attachments/test_crop.png)\n"
+        
+        try:
+            res = api.notelab_save_markdown(temp_save_path, content_with_image)
+            self.assertTrue(res["success"])
+            self.assertTrue(os.path.exists(temp_save_path))
+            
+            # Verify that attachments/test_crop.png was copied to target note folder
+            copied_crop = os.path.join(base_dir, "tests", "notes", "attachments", "test_crop.png")
+            self.assertTrue(os.path.exists(copied_crop))
+        finally:
+            if os.path.exists(dummy_crop):
+                os.remove(dummy_crop)
+            if os.path.exists(temp_save_path):
+                os.remove(temp_save_path)
+            copied_crop_path = os.path.join(base_dir, "tests", "notes", "attachments", "test_crop.png")
+            if os.path.exists(copied_crop_path):
+                os.remove(copied_crop_path)
+            copied_dir = os.path.join(base_dir, "tests", "notes", "attachments")
+            if os.path.exists(copied_dir):
+                os.rmdir(copied_dir)
+            notes_dir = os.path.join(base_dir, "tests", "notes")
+            if os.path.exists(notes_dir):
+                os.rmdir(notes_dir)
+
 if __name__ == '__main__':
     unittest.main()

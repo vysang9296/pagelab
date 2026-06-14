@@ -719,12 +719,34 @@ class Api:
             return {"success": False, "error": str(e), "compare_result": ""}
 
     def notelab_save_markdown(self, save_path, content):
-        """마크다운 콘텐츠를 지정된 파일 경로에 로컬 저장합니다."""
+        """마크다운 콘텐츠를 지정된 파일 경로에 로컬 저장하고 사용된 첨부 이미지를 함께 복사 이관합니다."""
         self.log(f"Saving markdown note to: {save_path}")
+        import re
+        import shutil
         try:
-            os.makedirs(os.path.dirname(save_path), exist_ok=True)
+            # 1. Save the markdown content first
+            target_dir = os.path.dirname(save_path)
+            os.makedirs(target_dir, exist_ok=True)
             with open(save_path, "w", encoding="utf-8") as f:
                 f.write(content)
+                
+            # 2. Extract image relative paths (e.g. ![crop](attachments/notelab_crop_*.png))
+            image_pattern = r'!\[.*?\]\((attachments[\\/][^)]+)\)'
+            matches = re.findall(image_pattern, content)
+            
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            src_attachments_root = os.path.join(base_dir, "frontend")
+            
+            # 3. Copy each match to the target dir
+            for rel_img_path in matches:
+                clean_rel_path = rel_img_path.replace('\\', '/')
+                src_path = os.path.join(src_attachments_root, clean_rel_path)
+                if os.path.exists(src_path):
+                    dest_path = os.path.join(target_dir, clean_rel_path)
+                    os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+                    shutil.copy2(src_path, dest_path)
+                    self.log(f"Copied attachment resource: {src_path} -> {dest_path}")
+            
             return {"success": True}
         except Exception as e:
             self.log(f"Save markdown error: {e}")
