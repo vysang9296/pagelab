@@ -737,11 +737,13 @@ class Api:
         return self._parse_dialog_result(result)
 
     def notelab_crop_pdf_page(self, pdf_path, page_idx, x, y, w, h, vault_dir):
-        """PDF 페이지 영역을 크롭하여 attachments 폴더에 이미지로 저장합니다."""
+        """PDF 페이지 영역을 크롭하여 frontend/attachments 폴더에 이미지로 저장합니다."""
         self.log(f"Crop requested: {pdf_path} page {page_idx} ({x}, {y}, {w}, {h})")
         from backend.crop_engine import CropEngine
         try:
-            attachments_dir = os.path.join(vault_dir, "attachments")
+            # Force target directory to frontend/attachments to align with webview static server
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            attachments_dir = os.path.join(base_dir, "frontend", "attachments")
             engine = CropEngine()
             filename = engine.crop_pdf_page(pdf_path, page_idx, x, y, w, h, attachments_dir)
             return {"success": True, "filename": filename, "relative_path": f"attachments/{filename}"}
@@ -754,6 +756,11 @@ class Api:
         self.log(f"OCR request for image: {image_path}")
         from backend.ocr_engine import WindowsOCREngine
         try:
+            # If path is relative to attachments, resolve to absolute frontend/attachments/
+            if not os.isabs(image_path) and image_path.startswith("attachments"):
+                base_dir = os.path.dirname(os.path.abspath(__file__))
+                image_path = os.path.join(base_dir, "frontend", image_path)
+                
             engine = WindowsOCREngine()
             res = engine.ocr_from_image(image_path)
             return res

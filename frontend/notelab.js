@@ -249,7 +249,7 @@ function triggerOcrOrCrop(pageIndex, coords) {
     // Convert currentOpenedDocPath backslash to slash or keep it
     if (window.pywebview && window.pywebview.api) {
         showLoading(coords.mode === "ocr" ? "OCR 텍스트 추출 중..." : "이미지 영역 크롭 중...");
-        window.pywebview.api.notelab_crop_pdf_page(currentOpenedDocPath, pageIndex, coords.x, coords.y, coords.w, coords.h, ".").then(res => {
+        window.pywebview.api.notelab_crop_pdf_page(currentOpenedDocPath, pageIndex, coords.x, coords.y, coords.w, coords.h, "frontend").then(res => {
             if (res && res.success) {
                 if (coords.mode === "ocr") {
                     const relativeImagePath = "attachments/" + res.filename;
