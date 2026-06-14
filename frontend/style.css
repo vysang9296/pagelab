@@ -395,6 +395,51 @@ mark { background-color: #fce8e6; color: var(--danger-red); padding: 0 2px; bord
     display: block;
 }
 
+/* Note Lab Editor single panel preview toggle styles */
+.notelab-editor-only .toastui-editor-md-container {
+    width: 100% !important;
+    display: block !important;
+}
+.notelab-editor-only .toastui-editor-md-preview {
+    display: none !important;
+}
+
+.notelab-preview-only .toastui-editor-md-container {
+    display: none !important;
+}
+.notelab-preview-only .toastui-editor-md-preview {
+    width: 100% !important;
+    display: block !important;
+}
+
+/* Floating mini context menu styling */
+.fl-mini-menu {
+    position: absolute;
+    display: none;
+    background: #ffffff;
+    border: 1px solid #dcdcdc;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    border-radius: 4px;
+    padding: 4px 0;
+    z-index: 10000;
+    flex-direction: column;
+    min-width: 130px;
+}
+.fl-mini-menu-item {
+    padding: 6px 12px;
+    font-size: 12px;
+    color: #333;
+    cursor: pointer;
+    text-align: left;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.fl-mini-menu-item:hover {
+    background: #f3f2f1;
+}
+
+
 
 
 
