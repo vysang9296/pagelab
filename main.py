@@ -761,6 +761,19 @@ class Api:
             self.log(f"OCR error: {e}")
             return {"success": False, "error_code": "unhandled-exception", "text": "", "error": str(e)}
 
+    def notelab_analyze_text(self, text):
+        """휴리스틱 AI 모듈을 구동하여 본문 핵심 단어를 검출합니다."""
+        self.log("AI Analyzer requested")
+        from backend.ai_analyzer import DefaultLightAnalyzer
+        try:
+            analyzer = DefaultLightAnalyzer()
+            kws = analyzer.extract_keywords(text)
+            summary = analyzer.summarize(text)
+            return {"success": True, "keywords": kws, "summary": summary}
+        except Exception as e:
+            self.log(f"AI Analyzer error: {e}")
+            return {"success": False, "keywords": [], "summary": "", "error": str(e)}
+
     def choose_save_path(self, default_filename: str):
         """Ask user where to save, with default filename."""
         if not self._window: return None

@@ -200,6 +200,38 @@ function initNoteLabButtons() {
             }
         });
     }
+
+    const aiBtn = document.getElementById("notelab-ai-btn");
+    if (aiBtn) {
+        aiBtn.addEventListener("click", () => {
+            if (!notelabEditorInstance) {
+                alert("에디터가 초기화되지 않았습니다.");
+                return;
+            }
+            const markdown = notelabEditorInstance.getMarkdown();
+            if (!markdown.trim()) {
+                alert("분석할 본문 내용이 없습니다.");
+                return;
+            }
+            showLoading("AI 분석 중...");
+            window.pywebview.api.notelab_analyze_text(markdown).then(res => {
+                hideLoading();
+                if (res && res.success) {
+                    const keywordsStr = res.keywords && res.keywords.length > 0 ? res.keywords.join(", ") : "없음";
+                    const summaryStr = res.summary || "요약 없음";
+                    
+                    const aiReport = `\n\n---\n🤖 **AI 요약 및 키워드 분석**\n- **주요 키워드**: ${keywordsStr}\n- **요약**: ${summaryStr}\n`;
+                    notelabEditorInstance.insertText(aiReport);
+                    alert("AI 분석이 완료되었습니다. 결과가 문서 끝에 추가되었습니다.");
+                } else {
+                    alert("AI 분석 실패: " + (res.error || "알 수 없는 오류"));
+                }
+            }).catch(err => {
+                hideLoading();
+                alert("AI 분석 중 오류 발생: " + err);
+            });
+        });
+    }
 }
 
 function initNoteLabPostMessageListener() {
@@ -689,6 +721,45 @@ function loadPdfInIframe(pdfPath) {
         </html>
     `);
     doc.close();
+}
+
+function openInNoteLab(filePath) {
+    currentOpenedDocPath = filePath;
+    const titleEl = document.querySelector('.notelab-file-title');
+    if (titleEl) {
+        titleEl.innerText = filePath.split(/[\\/]/).pop();
+    }
+    
+    // Switch to notelab tab
+    const notelabTabBtn = document.querySelector('[data-tab="notelab"]');
+    if (notelabTabBtn) {
+        notelabTabBtn.click();
+    }
+    
+    if (window.pywebview && window.pywebview.api) {
+        showLoading("문서 파싱 및 로딩 중...");
+        window.pywebview.api.notelab_parse_to_markdown(filePath).then(res => {
+            hideLoading();
+            if (res && res.success) {
+                if (notelabEditorInstance) {
+                    notelabEditorInstance.setMarkdown(res.markdown);
+                }
+                if (res.pdf_path) {
+                    loadPdfInIframe(res.pdf_path);
+                }
+            } else {
+                if (notelabEditorInstance) {
+                    notelabEditorInstance.setMarkdown("# 파싱 실패\n" + (res ? res.markdown : ""));
+                }
+                if (res && res.pdf_path) {
+                    loadPdfInIframe(res.pdf_path);
+                }
+            }
+        }).catch(err => {
+            hideLoading();
+            alert("문서 로딩 중 오류 발생: " + err);
+        });
+    }
 }
 
 window.openInNoteLab = openInNoteLab;
