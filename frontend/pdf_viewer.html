@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8">
+    <title>Note Lab PDF Viewer</title>
+    <!-- PDF.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.12.313/pdf.min.js"></script>
+    <script>
+        if (typeof pdfjsLib !== 'undefined') {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.12.313/pdf.worker.min.js';
+        }
+    </script>
+    <style>
+        body {
+            margin: 0;
+            background-color: #525659;
+            font-family: sans-serif;
+            overflow-y: auto;
+            height: 100vh;
+        }
+        #viewer-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px 0;
+        }
+        .page-container {
+            position: relative;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            background-color: white;
+            user-select: none;
+        }
+        canvas {
+            display: block;
+        }
+        .selection-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            cursor: crosshair;
+            z-index: 10;
+            pointer-events: none;
+        }
+        .action-popover {
+            position: absolute;
+            display: none;
+            background: #ffffff;
+            border: 1px solid #ccc;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            border-radius: 4px;
+            padding: 4px;
+            z-index: 999;
+            flex-direction: row;
+            gap: 4px;
+        }
+        .popover-btn {
+            padding: 4px 8px;
+            font-size: 11px;
+            background: #1a73e8;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .popover-btn:hover {
+            background: #1557b0;
+        }
+        .popover-btn.cancel {
+            background: #aaa;
+        }
+        .popover-btn.cancel:hover {
+            background: #888;
+        }
+        .fl-mini-menu-item:hover {
+            background: #f3f2f1 !important;
+        }
+    </style>
+</head>
+<body>
+    <div id="viewer-container"></div>
+
+    <div id="fl-mini-menu" style="position: absolute; display: none; background: #ffffff; border: 1px solid #dcdcdc; box-shadow: 0 4px 12px rgba(0,0,0,0.15); border-radius: 4px; padding: 4px 0; z-index: 10000; flex-direction: column; min-width: 130px; font-family: sans-serif;">
+        <div class="fl-mini-menu-item" id="btn-mini-copy" style="padding: 6px 12px; font-size: 12px; color: #333; cursor: pointer; text-align: left; transition: background 0.15s;">📋 단순 복사</div>
+        <div class="fl-mini-menu-item" id="btn-mini-refine-copy" style="padding: 6px 12px; font-size: 12px; color: #333; cursor: pointer; text-align: left; transition: background 0.15s;">✨ 띄어쓰기 정리 복사</div>
+        <div class="fl-mini-menu-item" id="btn-mini-send" style="padding: 6px 12px; font-size: 12px; color: #333; cursor: pointer; text-align: left; transition: background 0.15s;">📝 에디터로 보내기</div>
+    </div>
+    
+    <div id="popover-menu" class="action-popover">
+        <button class="popover-btn" id="btn-crop">✂️ 이미지 크롭</button>
+        <button class="popover-btn" id="btn-ocr">🔍 글자 추출(OCR)</button>
+        <button class="popover-btn cancel" id="btn-cancel">취소</button>
+    </div>
+
+    <script>
+        let pdfDoc = null;
+        let activeSelection = null;
+        let selectedText = "";
+        
+        document.addEventListener("mouseup", (e) => {
+            const overlay = document.querySelector('.selection-overlay');
+            if (overlay && window.getComputedStyle(overlay).pointerEvents !== 'none') {
+                return;
+            }
+            const selection = window.getSelection();
+            const text = selection.toString().trim();
+            const menu = document.getElementById("fl-mini-menu");
+            if (text) {
+                selectedText = text;
+                menu.style.display = "flex";
+                menu.style.left = (e.pageX + 10) + "px";
+                menu.style.top = (e.pageY + 10) + "px";
+            } else {
+                if (menu && !menu.contains(e.target)) {
+                    menu.style.display = "none";
+                }
+            }
+        });
+        
+        document.addEventListener("mousedown", (e) => {
+            const menu = document.getElementById("fl-mini-menu");
+            if (menu && menu.style.display === "flex" && !menu.contains(e.target)) {
+                menu.style.display = "none";
+            }
+        });
+        
+        document.getElementById("btn-mini-copy").addEventListener("click", () => {
+            navigator.clipboard.writeText(selectedText);
+            document.getElementById("fl-mini-menu").style.display = "none";
+        });
+        
+        document.getElementById("btn-mini-refine-copy").addEventListener("click", () => {
+            const refined = selectedText.replace(/\r?\n/g, ' ').replace(/\s+/g, ' ').trim();
+            navigator.clipboard.writeText(refined);
+            document.getElementById("fl-mini-menu").style.display = "none";
+        });
+        
+        document.getElementById("btn-mini-send").addEventListener("click", () => {
+            const refined = selectedText.replace(/\r?\n/g, ' ').replace(/\s+/g, ' ').trim();
+            window.parent.postMessage({
+                type: "INSERT_TEXT",
+                text: "\n" + refined + "\n"
+            }, "*");
+            document.getElementById("fl-mini-menu").style.display = "none";
+            window.getSelection().removeAllRanges();
+        });
+        
+        window.addEventListener("message", (event) => {
+            if (event.data && event.data.type === "SET_CROP_MODE") {
+                const overlays = document.querySelectorAll('.selection-overlay');
+                overlays.forEach(overlay => {
+                    overlay.style.pointerEvents = event.data.enabled ? "auto" : "none";
+                });
+            } else if (event.data && event.data.type === "LOAD_PDF") {
+                loadPdf(event.data.base64);
+            } else if (event.data && event.data.type === "NAVIGATE_PAGE") {
+                const pageNum = event.data.page;
+                const el = document.getElementById('page-container-' + pageNum);
+                if (el) {
+                    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }
+        });
+        
+        async function loadPdf(pdfBase64) {
+            try {
+                const raw = window.atob(pdfBase64);
+                const rawLength = raw.length;
+                const array = new Uint8Array(new ArrayBuffer(rawLength));
+                for(let i = 0; i < rawLength; i++) {
+                    array[i] = raw.charCodeAt(i);
+                }
+                const loadingTask = pdfjsLib.getDocument({
+                    data: array,
+                    cMapUrl: './cmaps/',
+                    cMapPacked: true
+                });
+                pdfDoc = await loadingTask.promise;
+                renderAllPages();
+            } catch (e) {
+                console.error("Failed to load PDF in iframe: ", e);
+                document.getElementById('viewer-container').innerHTML = 
+                    '<div style="color:white; padding:20px; text-align:center;">PDF 파일을 불러오지 못했습니다. <br>' + e.message + '</div>';
+            }
+        }
+        
+        async function renderAllPages() {
+            const container = document.getElementById('viewer-container');
+            container.innerHTML = '';
+            
+            for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
+                const page = await pdfDoc.getPage(pageNum);
+                const viewport = page.getViewport({ scale: 1.5 });
+                
+                const pageDiv = document.createElement('div');
+                pageDiv.className = 'page-container';
+                pageDiv.id = 'page-container-' + pageNum;
+                pageDiv.style.width = viewport.width + 'px';
+                pageDiv.style.height = viewport.height + 'px';
+                
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                canvas.width = viewport.width;
+                canvas.height = viewport.height;
+                
+                const renderContext = {
+                    canvasContext: context,
+                    viewport: viewport
+                };
+                await page.render(renderContext).promise;
+                
+                const overlay = document.createElement('div');
+                overlay.className = 'selection-overlay';
+                overlay.dataset.pageIndex = pageNum - 1;
+                
+                setupSelectionDrawing(overlay, canvas, page, viewport);
+                
+                pageDiv.appendChild(canvas);
+                pageDiv.appendChild(overlay);
+                container.appendChild(pageDiv);
+            }
+        }
+        
+        function setupSelectionDrawing(overlay, canvas, page, viewport) {
+            let isDrawing = false;
+            let startX = 0, startY = 0;
+            let currentSelectionDiv = null;
+            
+            overlay.addEventListener('mousedown', (e) => {
+                hidePopover();
+                isDrawing = true;
+                const rect = overlay.getBoundingClientRect();
+                startX = e.clientX - rect.left;
+                startY = e.clientY - rect.top;
+                
+                if (currentSelectionDiv) {
+                    currentSelectionDiv.remove();
+                }
+                
+                currentSelectionDiv = document.createElement('div');
+                currentSelectionDiv.style.position = 'absolute';
+                currentSelectionDiv.style.border = '2px dashed #1a73e8';
+                currentSelectionDiv.style.background = 'rgba(26, 115, 232, 0.15)';
+                currentSelectionDiv.style.left = startX + 'px';
+                currentSelectionDiv.style.top = startY + 'px';
+                overlay.appendChild(currentSelectionDiv);
+            });
+            
+            overlay.addEventListener('mousemove', (e) => {
+                if (!isDrawing) return;
+                const rect = overlay.getBoundingClientRect();
+                const currentX = e.clientX - rect.left;
+                const currentY = e.clientY - rect.top;
+                
+                const width = currentX - startX;
+                const height = currentY - startY;
+                
+                currentSelectionDiv.style.width = Math.abs(width) + 'px';
+                currentSelectionDiv.style.height = Math.abs(height) + 'px';
+                currentSelectionDiv.style.left = (width < 0 ? currentX : startX) + 'px';
+                currentSelectionDiv.style.top = (height < 0 ? currentY : startY) + 'px';
+            });
+            
+            overlay.addEventListener('mouseup', (e) => {
+                if (!isDrawing) return;
+                isDrawing = false;
+                
+                const rect = overlay.getBoundingClientRect();
+                const endX = e.clientX - rect.left;
+                const endY = e.clientY - rect.top;
+                const pageIndex = parseInt(overlay.dataset.pageIndex, 10);
+                
+                const x = Math.min(startX, endX);
+                const y = Math.min(startY, endY);
+                const w = Math.abs(startX - endX);
+                const h = Math.abs(startY - endY);
+                
+                if (w > 5 && h > 5) {
+                    activeSelection = {
+                        pageIndex,
+                        canvasX: x,
+                        canvasY: y,
+                        canvasW: w,
+                        canvasH: h,
+                        page,
+                        viewport,
+                        overlayDiv: currentSelectionDiv
+                    };
+                    showPopover(e.clientX, e.clientY + overlay.getBoundingClientRect().top);
+                } else {
+                    if (currentSelectionDiv) {
+                        currentSelectionDiv.remove();
+                        currentSelectionDiv = null;
+                    }
+                }
+            });
+        }
+        
+        function showPopover(clientX, clientY) {
+            const popover = document.getElementById('popover-menu');
+            popover.style.display = 'flex';
+            popover.style.left = (clientX + 10) + 'px';
+            popover.style.top = (clientY + 10) + 'px';
+        }
+        
+        function hidePopover() {
+            const popover = document.getElementById('popover-menu');
+            popover.style.display = 'none';
+            if (activeSelection && activeSelection.overlayDiv) {
+                activeSelection.overlayDiv.remove();
+            }
+            activeSelection = null;
+        }
+        
+        document.getElementById('btn-crop').addEventListener('click', () => {
+            sendSelection("crop");
+        });
+        
+        document.getElementById('btn-ocr').addEventListener('click', () => {
+            sendSelection("ocr");
+        });
+        
+        document.getElementById('btn-cancel').addEventListener('click', () => {
+            hidePopover();
+        });
+        
+        function sendSelection(mode) {
+            if (!activeSelection) return;
+            const { pageIndex, canvasX, canvasY, canvasW, canvasH, page, viewport } = activeSelection;
+            const pdfPoint1 = viewport.convertToPdfPoint(canvasX, canvasY);
+            const pdfPoint2 = viewport.convertToPdfPoint(canvasX + canvasW, canvasY + canvasH);
+            const pageHeight = page.view[3];
+            const fitzY1 = pageHeight - pdfPoint1[1];
+            const fitzY2 = pageHeight - pdfPoint2[1];
+            const finalX = Math.min(pdfPoint1[0], pdfPoint2[0]);
+            const finalY = Math.min(fitzY1, fitzY2);
+            const finalW = Math.abs(pdfPoint1[0] - pdfPoint2[0]);
+            const finalH = Math.abs(fitzY1 - fitzY2);
+            
+            window.parent.postMessage({
+                type: "CROP_SELECTION",
+                pageIndex: pageIndex,
+                coords: {
+                    x: finalX,
+                    y: finalY,
+                    w: finalW,
+                    h: finalH,
+                    mode: mode
+                }
+            }, "*");
+            hidePopover();
+        }
+    </script>
+</body>
+</html>
