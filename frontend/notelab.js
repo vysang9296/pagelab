@@ -41,42 +41,14 @@ function initNoteLabEditor() {
             el: editorEl,
             height: '100%',
             initialEditType: 'wysiwyg',
+            hideModeSwitch: true,
             previewStyle: 'vertical',
             events: {
                 change: () => {
                     bindPreviewLinks();
-                },
-                changeMode: (mode) => {
-                    const editorWrapper = document.getElementById("notelab-markdown-editor");
-                    const previewBtn = document.getElementById("notelab-toggle-preview-btn");
-                    if (editorWrapper) {
-                        if (mode === 'wysiwyg') {
-                            editorWrapper.classList.remove("notelab-editor-only", "notelab-preview-only");
-                            if (previewBtn) {
-                                previewBtn.disabled = true;
-                                previewBtn.style.opacity = "0.5";
-                                previewBtn.style.cursor = "not-allowed";
-                            }
-                        } else {
-                            editorWrapper.classList.add("notelab-editor-only");
-                            if (previewBtn) {
-                                previewBtn.disabled = false;
-                                previewBtn.style.opacity = "";
-                                previewBtn.style.cursor = "";
-                            }
-                        }
-                    }
                 }
             }
         });
-        
-        // Disable preview button initially since it starts in WYSIWYG mode
-        const previewBtn = document.getElementById("notelab-toggle-preview-btn");
-        if (previewBtn) {
-            previewBtn.disabled = true;
-            previewBtn.style.opacity = "0.5";
-            previewBtn.style.cursor = "not-allowed";
-        }
     }
 }
 
@@ -316,30 +288,6 @@ function initNoteLabButtons() {
         cropBtn.addEventListener("click", () => {
             const isActive = cropBtn.classList.contains("active");
             setCropOverlayMode(!isActive);
-        });
-    }
-    
-    const previewBtn = document.getElementById("notelab-toggle-preview-btn");
-    if (previewBtn) {
-        previewBtn.addEventListener("click", () => {
-            if (notelabEditorInstance && notelabEditorInstance.getEditType() === 'wysiwyg') {
-                return;
-            }
-            const editorWrapper = document.getElementById("notelab-markdown-editor");
-            if (editorWrapper) {
-                const isPreview = editorWrapper.classList.contains("notelab-preview-only");
-                if (isPreview) {
-                    editorWrapper.classList.remove("notelab-preview-only");
-                    editorWrapper.classList.add("notelab-editor-only");
-                    previewBtn.style.background = "";
-                    previewBtn.style.color = "";
-                } else {
-                    editorWrapper.classList.remove("notelab-editor-only");
-                    editorWrapper.classList.add("notelab-preview-only");
-                    previewBtn.style.background = "#1a73e8";
-                    previewBtn.style.color = "white";
-                }
-            }
         });
     }
 }

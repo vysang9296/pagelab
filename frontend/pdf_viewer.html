@@ -70,16 +70,18 @@
             position: absolute;
             display: none;
             background: #ffffff;
-            border: 1px solid #ccc;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            border: 1px solid #dcdcdc;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
             border-radius: 4px;
-            padding: 4px;
-            z-index: 999;
+            padding: 6px;
+            z-index: 10000;
             flex-direction: row;
-            gap: 4px;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
         }
         .popover-btn {
-            padding: 4px 8px;
+            padding: 6px 10px;
             font-size: 11px;
             background: #1a73e8;
             color: white;
@@ -87,15 +89,20 @@
             border-radius: 3px;
             cursor: pointer;
             font-weight: bold;
+            display: inline-flex;
+            align-items: center;
+            transition: background 0.15s;
         }
         .popover-btn:hover {
             background: #1557b0;
         }
         .popover-btn.cancel {
-            background: #aaa;
+            background: #f3f2f1;
+            color: #333;
+            border: 1px solid #dcdcdc;
         }
         .popover-btn.cancel:hover {
-            background: #888;
+            background: #eaeaea;
         }
         .fl-mini-menu-item:hover {
             background: #f3f2f1 !important;
@@ -330,7 +337,7 @@
                         viewport,
                         overlayDiv: currentSelectionDiv
                     };
-                    showPopover(e.clientX, e.clientY + overlay.getBoundingClientRect().top);
+                    showPopover(e.pageX, e.pageY);
                 } else {
                     if (currentSelectionDiv) {
                         currentSelectionDiv.remove();
