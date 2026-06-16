@@ -40,15 +40,43 @@ function initNoteLabEditor() {
         notelabEditorInstance = new toastui.Editor({
             el: editorEl,
             height: '100%',
-            initialEditType: 'markdown',
+            initialEditType: 'wysiwyg',
             previewStyle: 'vertical',
             events: {
                 change: () => {
                     bindPreviewLinks();
+                },
+                changeMode: (mode) => {
+                    const editorWrapper = document.getElementById("notelab-markdown-editor");
+                    const previewBtn = document.getElementById("notelab-toggle-preview-btn");
+                    if (editorWrapper) {
+                        if (mode === 'wysiwyg') {
+                            editorWrapper.classList.remove("notelab-editor-only", "notelab-preview-only");
+                            if (previewBtn) {
+                                previewBtn.disabled = true;
+                                previewBtn.style.opacity = "0.5";
+                                previewBtn.style.cursor = "not-allowed";
+                            }
+                        } else {
+                            editorWrapper.classList.add("notelab-editor-only");
+                            if (previewBtn) {
+                                previewBtn.disabled = false;
+                                previewBtn.style.opacity = "";
+                                previewBtn.style.cursor = "";
+                            }
+                        }
+                    }
                 }
             }
         });
-        editorEl.classList.add("notelab-editor-only");
+        
+        // Disable preview button initially since it starts in WYSIWYG mode
+        const previewBtn = document.getElementById("notelab-toggle-preview-btn");
+        if (previewBtn) {
+            previewBtn.disabled = true;
+            previewBtn.style.opacity = "0.5";
+            previewBtn.style.cursor = "not-allowed";
+        }
     }
 }
 
@@ -294,6 +322,9 @@ function initNoteLabButtons() {
     const previewBtn = document.getElementById("notelab-toggle-preview-btn");
     if (previewBtn) {
         previewBtn.addEventListener("click", () => {
+            if (notelabEditorInstance && notelabEditorInstance.getEditType() === 'wysiwyg') {
+                return;
+            }
             const editorWrapper = document.getElementById("notelab-markdown-editor");
             if (editorWrapper) {
                 const isPreview = editorWrapper.classList.contains("notelab-preview-only");
@@ -520,410 +551,50 @@ function navigateToDocumentPage(filePath, pageNum) {
 // Dynamic Local PDF.js Viewer Generator for Iframe (SOP Bypass)
 // -------------------------------------------------------------
 function loadPdfInIframe(pdfPath) {
+    if (window.pywebview && window.pywebview.api && window.pywebview.api.notelab_get_pdf_base64) {
+        showLoading("PDF 데이터를 불러오는 중...");
+        window.pywebview.api.notelab_get_pdf_base64(pdfPath).then(res => {
+            hideLoading();
+            if (res && res.success) {
+                renderPdfInIframeWithBase64(pdfPath, res.base64);
+            } else {
+                alert("PDF 로드 실패: " + (res ? res.error : "알 수 없는 오류"));
+                const iframe = document.getElementById("notelab-pdf-iframe");
+                if (iframe) {
+                    iframe.src = "about:blank";
+                }
+            }
+        }).catch(err => {
+            hideLoading();
+            alert("PDF 로드 중 에러 발생: " + err);
+        });
+    } else {
+        alert("API가 준비되지 않았습니다.");
+    }
+}
+
+function renderPdfInIframeWithBase64(pdfPath, base64) {
     const iframe = document.getElementById("notelab-pdf-iframe");
     if (!iframe) return;
     
-    // We escape windows path backslashes for JS strings
-    const escapedPdfPath = pdfPath.replace(/\\/g, '\\\\');
+    const viewerUrl = "pdf_viewer.html";
     
-    const doc = iframe.contentDocument || iframe.contentWindow.document;
-    doc.open();
-    doc.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <style>
-                body {
-                    margin: 0;
-                    background-color: #525659;
-                    font-family: sans-serif;
-                    overflow-y: auto;
-                    height: 100vh;
-                }
-                #viewer-container {
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    padding: 20px 0;
-                }
-                .page-container {
-                    position: relative;
-                    margin-bottom: 20px;
-                    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-                    background-color: white;
-                    user-select: none;
-                }
-                canvas {
-                    display: block;
-                }
-                /* Selection Overlay Canvas */
-                .selection-overlay {
-                    position: absolute;
-                    top: 0;
-                    left: 0;
-                    width: 100%;
-                    height: 100%;
-                    cursor: crosshair;
-                    z-index: 10;
-                    pointer-events: none; /* Default: ignore mouse events to allow text selection */
-                }
-                /* Popover action menu */
-                .action-popover {
-                    position: absolute;
-                    display: none;
-                    background: #ffffff;
-                    border: 1px solid #ccc;
-                    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-                    border-radius: 4px;
-                    padding: 4px;
-                    z-index: 999;
-                    flex-direction: row;
-                    gap: 4px;
-                }
-                .popover-btn {
-                    padding: 4px 8px;
-                    font-size: 11px;
-                    background: #1a73e8;
-                    color: white;
-                    border: none;
-                    border-radius: 3px;
-                    cursor: pointer;
-                    font-weight: bold;
-                }
-                .popover-btn:hover {
-                    background: #1557b0;
-                }
-                .popover-btn.cancel {
-                    background: #aaa;
-                }
-                .popover-btn.cancel:hover {
-                    background: #888;
-                }
-            </style>
-            <!-- Load PDF.js from CDN -->
-            <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.12.313/pdf.min.js"></script>
-            <script>
-                pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.12.313/pdf.worker.min.js';
-            </script>
-        </head>
-        <body>
-            <div id="viewer-container"></div>
-
-            <div id="fl-mini-menu" style="position: absolute; display: none; background: #ffffff; border: 1px solid #dcdcdc; box-shadow: 0 4px 12px rgba(0,0,0,0.15); border-radius: 4px; padding: 4px 0; z-index: 10000; flex-direction: column; min-width: 130px; font-family: sans-serif;">
-                <div class="fl-mini-menu-item" id="btn-mini-copy" style="padding: 6px 12px; font-size: 12px; color: #333; cursor: pointer; text-align: left; transition: background 0.15s;">📋 단순 복사</div>
-                <div class="fl-mini-menu-item" id="btn-mini-refine-copy" style="padding: 6px 12px; font-size: 12px; color: #333; cursor: pointer; text-align: left; transition: background 0.15s;">✨ 띄어쓰기 정리 복사</div>
-                <div class="fl-mini-menu-item" id="btn-mini-send" style="padding: 6px 12px; font-size: 12px; color: #333; cursor: pointer; text-align: left; transition: background 0.15s;">📝 에디터로 보내기</div>
-            </div>
-            
-            <script>
-                // CSS hover support inside iframe dynamic document
-                const styleSheet = document.createElement("style");
-                styleSheet.innerText = ".fl-mini-menu-item:hover { background: #f3f2f1 !important; }";
-                document.head.appendChild(styleSheet);
-            </script>
-            
-            <div id="popover-menu" class="action-popover">
-                <button class="popover-btn" id="btn-crop">✂️ 이미지 크롭</button>
-                <button class="popover-btn" id="btn-ocr">🔍 글자 추출(OCR)</button>
-                <button class="popover-btn cancel" id="btn-cancel">취소</button>
-            </div>
-
-             <script>
-                let pdfDoc = null;
-                let activeSelection = null; // { pageIndex, startX, startY, endX, endY, canvas }
-                let selectedText = "";
-                
-                document.addEventListener("mouseup", (e) => {
-                    // 크롭 모드(오버레이 pointer-events !== none)인 경우엔 드래그 텍스트 팝업 생략
-                    const overlay = document.querySelector('.selection-overlay');
-                    if (overlay && window.getComputedStyle(overlay).pointerEvents !== 'none') {
-                        return;
-                    }
-                    
-                    const selection = window.getSelection();
-                    const text = selection.toString().trim();
-                    const menu = document.getElementById("fl-mini-menu");
-                    
-                    if (text) {
-                        selectedText = text;
-                        menu.style.display = "flex";
-                        menu.style.left = (e.pageX + 10) + "px";
-                        menu.style.top = (e.pageY + 10) + "px";
-                    } else {
-                        if (menu && !menu.contains(e.target)) {
-                            menu.style.display = "none";
-                        }
-                    }
-                });
-                
-                document.addEventListener("mousedown", (e) => {
-                    const menu = document.getElementById("fl-mini-menu");
-                    if (menu && menu.style.display === "flex" && !menu.contains(e.target)) {
-                        menu.style.display = "none";
-                    }
-                });
-                
-                document.getElementById("btn-mini-copy").addEventListener("click", () => {
-                    navigator.clipboard.writeText(selectedText);
-                    document.getElementById("fl-mini-menu").style.display = "none";
-                });
-                
-                document.getElementById("btn-mini-refine-copy").addEventListener("click", () => {
-                    const refined = selectedText.replace(/\r?\n/g, ' ').replace(/\s+/g, ' ').trim();
-                    navigator.clipboard.writeText(refined);
-                    document.getElementById("fl-mini-menu").style.display = "none";
-                });
-                
-                document.getElementById("btn-mini-send").addEventListener("click", () => {
-                    const refined = selectedText.replace(/\r?\n/g, ' ').replace(/\s+/g, ' ').trim();
-                    window.parent.postMessage({
-                        type: "INSERT_TEXT",
-                        text: "\n" + refined + "\n"
-                    }, "*");
-                    document.getElementById("fl-mini-menu").style.display = "none";
-                    window.getSelection().removeAllRanges();
-                });
-                
-                window.addEventListener("message", (event) => {
-                    if (event.data && event.data.type === "SET_CROP_MODE") {
-                        const overlay = document.querySelector('.selection-overlay');
-                        if (overlay) {
-                            overlay.style.pointerEvents = event.data.enabled ? "auto" : "none";
-                        }
-                    }
-                });
-                
-                async function loadPdf() {
-                    try {
-                        const pdfPath = "${escapedPdfPath}";
-                        const res = await window.parent.pywebview.api.notelab_get_pdf_base64(pdfPath);
-                        if (!res || !res.success) {
-                            throw new Error(res ? res.error : "PDF 데이터를 가져오지 못했습니다.");
-                        }
-                        
-                        // Decode Base64 to Uint8Array
-                        const raw = window.atob(res.base64);
-                        const rawLength = raw.length;
-                        const array = new Uint8Array(new ArrayBuffer(rawLength));
-                        for(let i = 0; i < rawLength; i++) {
-                            array[i] = raw.charCodeAt(i);
-                        }
-                        
-                        const loadingTask = pdfjsLib.getDocument({ data: array });
-                        pdfDoc = await loadingTask.promise;
-                        renderAllPages();
-                    } catch (e) {
-                        console.error("Failed to load PDF in iframe: ", e);
-                        document.getElementById('viewer-container').innerHTML = 
-                            '<div style="color:white; padding:20px; text-align:center;">PDF 파일을 불러오지 못했습니다. <br>' + e.message + '</div>';
-                    }
-                }
-                
-                async function renderAllPages() {
-                    const container = document.getElementById('viewer-container');
-                    container.innerHTML = '';
-                    
-                    for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
-                        const page = await pdfDoc.getPage(pageNum);
-                        const viewport = page.getViewport({ scale: 1.5 });
-                        
-                        const pageDiv = document.createElement('div');
-                        pageDiv.className = 'page-container';
-                        pageDiv.id = 'page-container-' + pageNum;
-                        pageDiv.style.width = viewport.width + 'px';
-                        pageDiv.style.height = viewport.height + 'px';
-                        
-                        const canvas = document.createElement('canvas');
-                        const context = canvas.getContext('2d');
-                        canvas.width = viewport.width;
-                        canvas.height = viewport.height;
-                        
-                        const renderContext = {
-                            canvasContext: context,
-                            viewport: viewport
-                        };
-                        await page.render(renderContext).promise;
-                        
-                        // Selection overlay
-                        const overlay = document.createElement('div');
-                        overlay.className = 'selection-overlay';
-                        overlay.dataset.pageIndex = pageNum - 1;
-                        
-                        setupSelectionDrawing(overlay, canvas, page, viewport);
-                        
-                        pageDiv.appendChild(canvas);
-                        pageDiv.appendChild(overlay);
-                        container.appendChild(pageDiv);
-                    }
-                }
-                
-                function setupSelectionDrawing(overlay, canvas, page, viewport) {
-                    let isDrawing = false;
-                    let startX = 0, startY = 0;
-                    let currentSelectionDiv = null;
-                    
-                    overlay.addEventListener('mousedown', (e) => {
-                        // Clear active selection popover
-                        hidePopover();
-                        
-                        isDrawing = true;
-                        const rect = overlay.getBoundingClientRect();
-                        startX = e.clientX - rect.left;
-                        startY = e.clientY - rect.top;
-                        
-                        // Create visual selection div
-                        if (currentSelectionDiv) {
-                            currentSelectionDiv.remove();
-                        }
-                        
-                        currentSelectionDiv = document.createElement('div');
-                        currentSelectionDiv.style.position = 'absolute';
-                        currentSelectionDiv.style.border = '2px dashed #1a73e8';
-                        currentSelectionDiv.style.background = 'rgba(26, 115, 232, 0.15)';
-                        currentSelectionDiv.style.left = startX + 'px';
-                        currentSelectionDiv.style.top = startY + 'px';
-                        overlay.appendChild(currentSelectionDiv);
-                    });
-                    
-                    overlay.addEventListener('mousemove', (e) => {
-                        if (!isDrawing) return;
-                        const rect = overlay.getBoundingClientRect();
-                        const currentX = e.clientX - rect.left;
-                        const currentY = e.clientY - rect.top;
-                        
-                        const width = currentX - startX;
-                        const height = currentY - startY;
-                        
-                        currentSelectionDiv.style.width = Math.abs(width) + 'px';
-                        currentSelectionDiv.style.height = Math.abs(height) + 'px';
-                        currentSelectionDiv.style.left = (width < 0 ? currentX : startX) + 'px';
-                        currentSelectionDiv.style.top = (height < 0 ? currentY : startY) + 'px';
-                    });
-                    
-                    overlay.addEventListener('mouseup', (e) => {
-                        if (!isDrawing) return;
-                        isDrawing = false;
-                        
-                        const rect = overlay.getBoundingClientRect();
-                        const endX = e.clientX - rect.left;
-                        const endY = e.clientY - rect.top;
-                        
-                        const pageIndex = parseInt(overlay.dataset.pageIndex, 10);
-                        
-                        const x = Math.min(startX, endX);
-                        const y = Math.min(startY, endY);
-                        const w = Math.abs(startX - endX);
-                        const h = Math.abs(startY - endY);
-                        
-                        if (w > 5 && h > 5) {
-                            activeSelection = {
-                                pageIndex,
-                                canvasX: x,
-                                canvasY: y,
-                                canvasW: w,
-                                canvasH: h,
-                                page,
-                                viewport,
-                                overlayDiv: currentSelectionDiv
-                            };
-                            
-                            showPopover(e.clientX, e.clientY + overlay.getBoundingClientRect().top);
-                        } else {
-                            if (currentSelectionDiv) {
-                                currentSelectionDiv.remove();
-                                currentSelectionDiv = null;
-                            }
-                        }
-                    });
-                }
-                
-                function showPopover(clientX, clientY) {
-                    const popover = document.getElementById('popover-menu');
-                    popover.style.display = 'flex';
-                    popover.style.left = (clientX + 10) + 'px';
-                    popover.style.top = (clientY + 10) + 'px';
-                }
-                
-                function hidePopover() {
-                    const popover = document.getElementById('popover-menu');
-                    popover.style.display = 'none';
-                    if (activeSelection && activeSelection.overlayDiv) {
-                        activeSelection.overlayDiv.remove();
-                    }
-                    activeSelection = null;
-                }
-                
-                document.getElementById('btn-crop').addEventListener('click', () => {
-                    sendSelection("crop");
-                });
-                
-                document.getElementById('btn-ocr').addEventListener('click', () => {
-                    sendSelection("ocr");
-                });
-                
-                document.getElementById('btn-cancel').addEventListener('click', () => {
-                    hidePopover();
-                });
-                
-                function sendSelection(mode) {
-                    if (!activeSelection) return;
-                    
-                    const { pageIndex, canvasX, canvasY, canvasW, canvasH, page, viewport } = activeSelection;
-                    
-                    // Convert canvas pixels to PDF User Space points via convertToPdfPoint
-                    const pdfPoint1 = viewport.convertToPdfPoint(canvasX, canvasY);
-                    const pdfPoint2 = viewport.convertToPdfPoint(canvasX + canvasW, canvasY + canvasH);
-                    
-                    // PDF.js coordinate: bottom-left origin
-                    // PyMuPDF coordinate: top-left origin
-                    // page.view has [x0, y0, width, height] at scale 1.0 (unrotated, unscaled points)
-                    const pageHeight = page.view[3];
-                    
-                    // We must convert PDF.js bottom-left coordinate to fitz top-left coordinate.
-                    // pdfPoint[0] is X (same origin).
-                    // pdfPoint[1] is Y from bottom. So fitzY = pageHeight - Y.
-                    const fitzY1 = pageHeight - pdfPoint1[1];
-                    const fitzY2 = pageHeight - pdfPoint2[1];
-                    
-                    const finalX = Math.min(pdfPoint1[0], pdfPoint2[0]);
-                    const finalY = Math.min(fitzY1, fitzY2);
-                    const finalW = Math.abs(pdfPoint1[0] - pdfPoint2[0]);
-                    const finalH = Math.abs(fitzY1 - fitzY2);
-                    
-                    window.parent.postMessage({
-                        type: "CROP_SELECTION",
-                        pageIndex: pageIndex,
-                        coords: {
-                            x: finalX,
-                            y: finalY,
-                            w: finalW,
-                            h: finalH,
-                            mode: mode
-                        }
-                    }, "*");
-                    
-                    hidePopover();
-                }
-                
-                // postMessage Navigation Page scroll
-                window.addEventListener("message", (event) => {
-                    if (event.data && event.data.type === "NAVIGATE_PAGE") {
-                        const pageNum = event.data.page;
-                        const el = document.getElementById('page-container-' + pageNum);
-                        if (el) {
-                            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                        }
-                    }
-                });
-                
-                // Load PDF on startup
-                loadPdf();
-            </script>
-        </body>
-        </html>
-    `);
-    doc.close();
+    const sendPdfData = () => {
+        iframe.contentWindow.postMessage({
+            type: "LOAD_PDF",
+            base64: base64
+        }, "*");
+    };
+    
+    if (!iframe.src.endsWith(viewerUrl)) {
+        iframe.onload = () => {
+            sendPdfData();
+            iframe.onload = null;
+        };
+        iframe.src = viewerUrl;
+    } else {
+        sendPdfData();
+    }
 }
 
 function openInNoteLab(filePath) {
