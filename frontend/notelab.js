@@ -40,7 +40,7 @@ function initNoteLabEditor() {
         notelabEditorInstance = new toastui.Editor({
             el: editorEl,
             height: '100%',
-            initialEditType: 'wysiwyg',
+            initialEditType: 'markdown',
             hideModeSwitch: true,
             previewStyle: 'vertical',
             events: {
