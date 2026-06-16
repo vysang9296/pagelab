@@ -9,6 +9,13 @@
     <!-- Toast UI Editor CDN -->
     <link rel="stylesheet" href="https://uicdn.toast.com/editor/latest/toastui-editor.min.css" />
     <script src="https://uicdn.toast.com/editor/latest/toastui-editor-all.min.js"></script>
+    <!-- PDF.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.12.313/pdf.min.js"></script>
+    <script>
+        if (typeof pdfjsLib !== 'undefined') {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.12.313/pdf.worker.min.js';
+        }
+    </script>
 </head>
 <body>
 
@@ -276,14 +283,14 @@
         <!-- 우측 마크다운 에디터 영역 -->
         <div class="notelab-pane notelab-editor-pane" id="notelab-editor">
           <div class="notelab-editor-header">
-            <button id="notelab-save-btn" class="btn btn-primary">저장 (.md)</button>
-            <button id="notelab-patch-btn" class="btn">한글(HWPX) 패치 저장</button>
-            <button id="notelab-compare-btn" class="btn">신구 비교</button>
-            <button id="notelab-parse-all-btn" class="btn">전체 텍스트 가져오기</button>
+            <button id="notelab-save-btn" class="btn btn-primary">💾 저장</button>
+            <button id="notelab-patch-btn" class="btn">📝 HWPX 패치</button>
+            <button id="notelab-compare-btn" class="btn">🔍 비교</button>
+            <button id="notelab-parse-all-btn" class="btn">📥 텍스트 추출</button>
             <button id="notelab-toggle-preview-btn" class="btn">👁️ 미리보기</button>
             <button id="notelab-ai-btn" class="btn">🤖 AI 분석</button>
           </div>
-          <div id="notelab-markdown-editor" style="flex: 1; height: calc(100% - 40px);"></div>
+          <div id="notelab-markdown-editor" style="flex: 1; min-height: 0;"></div>
         </div>
       </div>
     </div>

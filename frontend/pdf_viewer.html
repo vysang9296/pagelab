@@ -5,6 +5,7 @@
     <title>Note Lab PDF Viewer</title>
     <!-- PDF.js CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.12.313/pdf.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.12.313/pdf_viewer.min.css" />
     <script>
         if (typeof pdfjsLib !== 'undefined') {
             pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.12.313/pdf.worker.min.js';
@@ -29,7 +30,16 @@
             margin-bottom: 20px;
             box-shadow: 0 4px 8px rgba(0,0,0,0.3);
             background-color: white;
-            user-select: none;
+        }
+        .textLayer {
+            position: absolute;
+            left: 0;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            overflow: hidden;
+            opacity: 1.0;
+            line-height: 1.0;
         }
         canvas {
             display: block;
@@ -212,6 +222,24 @@
                 };
                 await page.render(renderContext).promise;
                 
+                // Text Layer 엘리먼트 생성
+                const textLayerDiv = document.createElement('div');
+                textLayerDiv.className = 'textLayer';
+                textLayerDiv.style.width = viewport.width + 'px';
+                textLayerDiv.style.height = viewport.height + 'px';
+                
+                try {
+                    const textContent = await page.getTextContent();
+                    await pdfjsLib.renderTextLayer({
+                        textContent: textContent,
+                        container: textLayerDiv,
+                        viewport: viewport,
+                        textDivs: []
+                    }).promise;
+                } catch (textErr) {
+                    console.warn("Failed to render text layer for page " + pageNum, textErr);
+                }
+                
                 const overlay = document.createElement('div');
                 overlay.className = 'selection-overlay';
                 overlay.dataset.pageIndex = pageNum - 1;
@@ -219,6 +247,7 @@
                 setupSelectionDrawing(overlay, canvas, page, viewport);
                 
                 pageDiv.appendChild(canvas);
+                pageDiv.appendChild(textLayerDiv);
                 pageDiv.appendChild(overlay);
                 container.appendChild(pageDiv);
             }

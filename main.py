@@ -1059,7 +1059,7 @@ if __name__ == '__main__':
     api._window = window
     
     try:
-        webview.start(debug=False)
+        webview.start(http_server=True, debug=False)
     finally:
         api.cleanup()
 
