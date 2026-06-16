@@ -459,7 +459,12 @@ mark { background-color: #fce8e6; color: var(--danger-red); padding: 0 2px; bord
     background: #f3f2f1;
 }
 
-
-
-
-
+/* Toast UI Editor 가로 폭 100% 확장 (세로 반쪽만 렌더링되는 현상 해결) */
+.toastui-editor-defaultUI .toastui-editor-ww-container .toastui-editor,
+.toastui-editor-defaultUI .toastui-editor-md-container .toastui-editor {
+    max-width: 100% !important;
+}
+.toastui-editor-defaultUI .toastui-editor-ww-container .toastui-editor-contents,
+.toastui-editor-defaultUI .toastui-editor-md-container .toastui-editor-contents {
+    max-width: 100% !important;
+}

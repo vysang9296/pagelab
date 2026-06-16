@@ -41,6 +41,18 @@
             opacity: 1.0;
             line-height: 1.0;
         }
+        .textLayer ::selection {
+            background: rgba(255, 235, 156, 0.6) !important;
+            color: inherit;
+        }
+        .textLayer *::selection {
+            background: rgba(255, 235, 156, 0.6) !important;
+            color: inherit;
+        }
+        ::selection {
+            background: rgba(255, 235, 156, 0.6) !important;
+            color: inherit;
+        }
         canvas {
             display: block;
         }
@@ -96,7 +108,7 @@
     <div id="fl-mini-menu" style="position: absolute; display: none; background: #ffffff; border: 1px solid #dcdcdc; box-shadow: 0 4px 12px rgba(0,0,0,0.15); border-radius: 4px; padding: 4px 0; z-index: 10000; flex-direction: column; min-width: 130px; font-family: sans-serif;">
         <div class="fl-mini-menu-item" id="btn-mini-copy" style="padding: 6px 12px; font-size: 12px; color: #333; cursor: pointer; text-align: left; transition: background 0.15s;">📋 단순 복사</div>
         <div class="fl-mini-menu-item" id="btn-mini-refine-copy" style="padding: 6px 12px; font-size: 12px; color: #333; cursor: pointer; text-align: left; transition: background 0.15s;">✨ 띄어쓰기 정리 복사</div>
-        <div class="fl-mini-menu-item" id="btn-mini-send" style="padding: 6px 12px; font-size: 12px; color: #333; cursor: pointer; text-align: left; transition: background 0.15s;">📝 에디터로 보내기</div>
+        <div class="fl-mini-menu-item" id="btn-mini-send" style="padding: 6px 12px; font-size: 12px; color: #333; cursor: pointer; text-align: left; transition: background 0.15s;">📝 띄어쓰기 정리 내용 바로 보내기</div>
     </div>
     
     <div id="popover-menu" class="action-popover">
