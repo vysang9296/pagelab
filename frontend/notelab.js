@@ -323,9 +323,7 @@ function initNoteLabPostMessageListener() {
             // 크롭 시작하므로 오버레이 끎
             setCropOverlayMode(false);
         } else if (event.data && event.data.type === "INSERT_TEXT") {
-            if (notelabEditorInstance) {
-                notelabEditorInstance.insertText(event.data.text);
-            }
+            insertMarkdownContent(event.data.text);
         }
     });
 }
@@ -348,9 +346,7 @@ function triggerOcrOrCrop(pageIndex, coords) {
                         if (ocrRes && ocrRes.success) {
                             window.pywebview.api.notelab_refine_text(ocrRes.text).then(refineRes => {
                                 const textToInsert = refineRes && refineRes.success ? refineRes.refined_text : ocrRes.text;
-                                if (notelabEditorInstance) {
-                                    notelabEditorInstance.insertText("\n" + textToInsert + "\n");
-                                }
+                                insertMarkdownContent("\n" + textToInsert + "\n");
                             });
                         } else {
                             if (ocrRes && ocrRes.error_code === "ko-language-pack-missing") {
@@ -368,9 +364,7 @@ function triggerOcrOrCrop(pageIndex, coords) {
                     hideLoading();
                     setCropOverlayMode(false);
                     const mdImage = `\n![crop](${res.relative_path})\n`;
-                    if (notelabEditorInstance) {
-                        notelabEditorInstance.insertText(mdImage);
-                    }
+                    insertMarkdownContent(mdImage);
                 }
             } else {
                 hideLoading();
@@ -665,4 +659,72 @@ function openMultipleInNoteLab(filePaths) {
 }
 
 window.openMultipleInNoteLab = openMultipleInNoteLab;
+
+function insertMarkdownContent(markdown) {
+    if (!notelabEditorInstance) return;
+    
+    if (notelabEditorInstance.isWysiwyg()) {
+        const imageRegex = /!\[(.*?)\]\((.*?)\)/g;
+        let match;
+        let lastIdx = 0;
+        let hasImage = false;
+        
+        while ((match = imageRegex.exec(markdown)) !== null) {
+            hasImage = true;
+            const textBefore = markdown.substring(lastIdx, match.index);
+            if (textBefore) {
+                const html = markdownToHtmlSimple(textBefore);
+                notelabEditorInstance.exec('insertHTML', html);
+            }
+            
+            const altText = match[1] || 'image';
+            const imageUrl = match[2];
+            notelabEditorInstance.exec('addImage', {
+                altText: altText,
+                imageUrl: imageUrl
+            });
+            
+            lastIdx = imageRegex.lastIndex;
+        }
+        
+        if (hasImage) {
+            const remainingText = markdown.substring(lastIdx);
+            if (remainingText) {
+                const html = markdownToHtmlSimple(remainingText);
+                notelabEditorInstance.exec('insertHTML', html);
+            }
+        } else {
+            const html = markdownToHtmlSimple(markdown);
+            notelabEditorInstance.exec('insertHTML', html);
+        }
+    } else {
+        notelabEditorInstance.insertText(markdown);
+    }
+}
+
+function markdownToHtmlSimple(markdown) {
+    let lines = markdown.split('\n');
+    let htmlLines = lines.map(line => {
+        let trimmed = line.trim();
+        
+        if (trimmed === '---' || trimmed === '***') {
+            return '<hr />';
+        }
+        
+        const headerMatch = line.match(/^(#{1,6})\s+(.*?)$/);
+        if (headerMatch) {
+            const level = headerMatch[1].length;
+            const content = headerMatch[2];
+            return `<h${level}>${content}</h${level}>`;
+        }
+        
+        let processed = line;
+        processed = processed.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        processed = processed.replace(/\*(.*?)\*/g, '<em>$1</em>');
+        
+        return processed;
+    });
+    
+    return htmlLines.join('<br />');
+}
 
