@@ -417,25 +417,26 @@ mark { background-color: #fce8e6; color: var(--danger-red); padding: 0 2px; bord
 
 /* Note Lab Editor single panel preview toggle styles */
 /* Editor Only State */
-.notelab-editor-only .toastui-editor-md-editor {
+#notelab-editor.notelab-editor-only .toastui-editor-md-editor {
     width: 100% !important;
     display: block !important;
+    flex: 1 1 100% !important;
 }
-.notelab-editor-only .toastui-editor-md-preview {
+#notelab-editor.notelab-editor-only .toastui-editor-md-preview {
     display: none !important;
 }
-.notelab-editor-only .toastui-editor-md-splitter {
+#notelab-editor.notelab-editor-only .toastui-editor-md-splitter {
     display: none !important;
 }
 
 /* Split View State */
-.notelab-split-view .toastui-editor-md-editor {
+#notelab-editor.notelab-split-view .toastui-editor-md-editor {
     /* default flex/widths managed by JS */
 }
-.notelab-split-view .toastui-editor-md-preview {
+#notelab-editor.notelab-split-view .toastui-editor-md-preview {
     display: block !important;
 }
-.notelab-split-view .toastui-editor-md-splitter {
+#notelab-editor.notelab-split-view .toastui-editor-md-splitter {
     display: block !important;
 }
 
