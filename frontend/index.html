@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Public Binder - Page Lab</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=20260616_2">
     <script src="Sortable.min.js"></script>
     <!-- Toast UI Editor CDN -->
     <link rel="stylesheet" href="https://uicdn.toast.com/editor/latest/toastui-editor.min.css" />
@@ -287,9 +287,10 @@
             <button id="notelab-patch-btn" class="btn">📝 HWPX 패치</button>
             <button id="notelab-compare-btn" class="btn">🔍 비교</button>
             <button id="notelab-parse-all-btn" class="btn">📥 텍스트 추출</button>
+            <button id="notelab-toggle-preview-btn" class="btn">👁️ 미리보기</button>
             <button id="notelab-ai-btn" class="btn">🤖 AI 분석</button>
           </div>
-          <div id="notelab-markdown-editor" style="flex: 1; min-height: 0;"></div>
+          <div id="notelab-markdown-editor" class="notelab-editor-only" style="flex: 1; min-height: 0;"></div>
         </div>
       </div>
     </div>
@@ -308,10 +309,10 @@
         <div id="fl-ctx-open-notelab" class="fl-context-menu-item" onclick="flExecuteContextMenu('open_notelab')">📝 Note Lab에서 편집하기</div>
     </div>
 
-    <script src="app.js"></script>
-    <script src="tab_manager.js"></script>
-    <script src="folderlab.js"></script>
-    <script src="notelab.js"></script>
+    <script src="app.js?v=20260616_2"></script>
+    <script src="tab_manager.js?v=20260616_2"></script>
+    <script src="folderlab.js?v=20260616_2"></script>
+    <script src="notelab.js?v=20260616_2"></script>
 </body>
 </html>
 
