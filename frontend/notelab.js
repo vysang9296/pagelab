@@ -55,6 +55,11 @@ function initNoteLabEditor() {
                 }
             }
         });
+        
+        // Initialize custom splitter resizer after editor is created and rendered
+        setTimeout(() => {
+            initNoteLabSplitterResizer();
+        }, 150);
     }
 }
 
@@ -416,17 +421,42 @@ function initNoteLabButtons() {
             }
             const editorWrapper = document.getElementById("notelab-markdown-editor");
             if (editorWrapper) {
-                const isPreview = editorWrapper.classList.contains("notelab-preview-only");
-                if (isPreview) {
-                    editorWrapper.classList.remove("notelab-preview-only");
+                const isSplit = editorWrapper.classList.contains("notelab-split-view");
+                if (isSplit) {
+                    editorWrapper.classList.remove("notelab-split-view");
                     editorWrapper.classList.add("notelab-editor-only");
                     previewBtn.style.background = "";
                     previewBtn.style.color = "";
+                    
+                    // Reset styling overrides so that editor takes 100% width
+                    const editorPane = editorWrapper.querySelector('.toastui-editor-md-editor');
+                    if (editorPane) {
+                        editorPane.style.width = "";
+                        editorPane.style.flex = "";
+                    }
                 } else {
                     editorWrapper.classList.remove("notelab-editor-only");
-                    editorWrapper.classList.add("notelab-preview-only");
+                    editorWrapper.classList.add("notelab-split-view");
                     previewBtn.style.background = "#1a73e8";
                     previewBtn.style.color = "white";
+                    
+                    // When entering split view, restore default 50/50 or last dragged width
+                    const editorPane = editorWrapper.querySelector('.toastui-editor-md-editor');
+                    const previewPane = editorWrapper.querySelector('.toastui-editor-md-preview');
+                    if (editorPane && previewPane) {
+                        const lastPct = editorWrapper.dataset.lastEditorPct;
+                        if (lastPct) {
+                            editorPane.style.width = `calc(${lastPct}% - 3px)`;
+                            editorPane.style.flex = "none";
+                            previewPane.style.width = `calc(${100 - lastPct}% - 3px)`;
+                            previewPane.style.flex = "none";
+                        } else {
+                            editorPane.style.width = "calc(50% - 3px)";
+                            editorPane.style.flex = "none";
+                            previewPane.style.width = "calc(50% - 3px)";
+                            previewPane.style.flex = "none";
+                        }
+                    }
                 }
             }
         });
@@ -867,5 +897,75 @@ function markdownToHtmlSimple(markdown) {
     });
     
     return htmlLines.join('<br />');
+}
+
+function initNoteLabSplitterResizer() {
+    const editorWrapper = document.getElementById("notelab-markdown-editor");
+    if (!editorWrapper) return;
+    
+    const container = editorWrapper.querySelector('.toastui-editor-md-container');
+    if (!container) return;
+    
+    const splitter = container.querySelector('.toastui-editor-md-splitter');
+    const editorPane = container.querySelector('.toastui-editor-md-editor');
+    const previewPane = container.querySelector('.toastui-editor-md-preview');
+    
+    if (!splitter || !editorPane || !previewPane) return;
+    
+    // Make splitter look like a resizer
+    splitter.style.cursor = 'col-resize';
+    splitter.style.width = '6px';
+    splitter.style.background = '#ccc';
+    splitter.style.transition = 'background 0.2s';
+    
+    splitter.addEventListener('mouseenter', () => {
+        splitter.style.background = '#0078d4';
+    });
+    splitter.addEventListener('mouseleave', () => {
+        if (!isResizing) splitter.style.background = '#ccc';
+    });
+    
+    let isResizing = false;
+    
+    splitter.addEventListener('mousedown', (e) => {
+        isResizing = true;
+        document.body.style.cursor = 'col-resize';
+        e.preventDefault();
+        
+        // Prevent iframe from capturing mouse events during resize
+        const iframe = document.getElementById("notelab-pdf-iframe");
+        if (iframe) iframe.style.pointerEvents = "none";
+    });
+    
+    document.addEventListener('mousemove', (e) => {
+        if (!isResizing) return;
+        
+        const containerRect = container.getBoundingClientRect();
+        const containerWidth = containerRect.width;
+        const offsetLeft = e.clientX - containerRect.left;
+        
+        // Boundaries (min 150px)
+        if (offsetLeft > 150 && (containerWidth - offsetLeft) > 150) {
+            const editorPct = (offsetLeft / containerWidth) * 100;
+            editorWrapper.dataset.lastEditorPct = editorPct;
+            
+            editorPane.style.width = `calc(${editorPct}% - 3px)`;
+            editorPane.style.flex = 'none';
+            
+            previewPane.style.width = `calc(${100 - editorPct}% - 3px)`;
+            previewPane.style.flex = 'none';
+        }
+    });
+    
+    document.addEventListener('mouseup', () => {
+        if (isResizing) {
+            isResizing = false;
+            document.body.style.cursor = 'default';
+            splitter.style.background = '#ccc';
+            
+            const iframe = document.getElementById("notelab-pdf-iframe");
+            if (iframe) iframe.style.pointerEvents = "auto";
+        }
+    });
 }
 
