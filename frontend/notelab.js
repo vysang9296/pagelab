@@ -40,15 +40,132 @@ function initNoteLabEditor() {
         notelabEditorInstance = new toastui.Editor({
             el: editorEl,
             height: '100%',
-            initialEditType: 'wysiwyg',
+            initialEditType: 'markdown',
             hideModeSwitch: true,
             previewStyle: 'vertical',
             events: {
                 change: () => {
                     bindPreviewLinks();
+                },
+                keyup: (editorType, ev) => {
+                    handleWysiwygKeyup(editorType, ev);
+                },
+                keydown: (editorType, ev) => {
+                    handleWysiwygKeydown(editorType, ev);
                 }
             }
         });
+    }
+}
+
+function handleWysiwygKeyup(editorType, ev) {
+    if (editorType !== 'wysiwyg') return;
+    if (!notelabEditorInstance) return;
+    
+    // Space 키 입력 시 마크다운 문법 변환
+    if (ev.key === ' ' || ev.code === 'Space') {
+        const wysiwygEditor = notelabEditorInstance.getCurrentModeEditor();
+        if (!wysiwygEditor || !wysiwygEditor.view) return;
+        
+        const view = wysiwygEditor.view;
+        const { state } = view;
+        const { selection } = state;
+        const { $from } = selection;
+        const parentNode = $from.parent;
+        
+        if (parentNode && parentNode.type.name === 'paragraph') {
+            const text = parentNode.textContent;
+            const offset = $from.parentOffset;
+            const textBeforeCursor = text.substring(0, offset);
+            
+            // 1. 제목 (Heading): #, ##, ###, ####, #####, ###### + Space
+            const headingMatch = textBeforeCursor.match(/^(#{1,6})\s$/);
+            if (headingMatch) {
+                const level = headingMatch[1].length;
+                const startPos = $from.start();
+                const tr = state.tr.delete(startPos, startPos + offset);
+                view.dispatch(tr);
+                
+                notelabEditorInstance.exec('heading', { level: level });
+                ev.preventDefault();
+                return;
+            }
+            
+            // 2. 인용구 (BlockQuote): > + Space
+            if (textBeforeCursor === '> ') {
+                const startPos = $from.start();
+                const tr = state.tr.delete(startPos, startPos + offset);
+                view.dispatch(tr);
+                
+                notelabEditorInstance.exec('blockQuote');
+                ev.preventDefault();
+                return;
+            }
+            
+            // 3. 순서 없는 목록 (Unordered List): * 또는 - + Space
+            if (textBeforeCursor === '* ' || textBeforeCursor === '- ') {
+                const startPos = $from.start();
+                const tr = state.tr.delete(startPos, startPos + offset);
+                view.dispatch(tr);
+                
+                notelabEditorInstance.exec('ul');
+                ev.preventDefault();
+                return;
+            }
+            
+            // 4. 순서 있는 목록 (Ordered List): 1. + Space
+            if (textBeforeCursor === '1. ') {
+                const startPos = $from.start();
+                const tr = state.tr.delete(startPos, startPos + offset);
+                view.dispatch(tr);
+                
+                notelabEditorInstance.exec('ol');
+                ev.preventDefault();
+                return;
+            }
+            
+            // 5. 할 일 목록 (Task List): [ ] 또는 - [ ] 또는 * [ ] + Space
+            if (textBeforeCursor === '[ ] ' || textBeforeCursor === '- [ ] ' || textBeforeCursor === '* [ ] ') {
+                const startPos = $from.start();
+                const tr = state.tr.delete(startPos, startPos + offset);
+                view.dispatch(tr);
+                
+                notelabEditorInstance.exec('task');
+                ev.preventDefault();
+                return;
+            }
+        }
+    }
+}
+
+function handleWysiwygKeydown(editorType, ev) {
+    if (editorType !== 'wysiwyg') return;
+    if (!notelabEditorInstance) return;
+    
+    // Enter 키 입력 시 가로줄(hr) 변환
+    if (ev.key === 'Enter') {
+        const wysiwygEditor = notelabEditorInstance.getCurrentModeEditor();
+        if (!wysiwygEditor || !wysiwygEditor.view) return;
+        
+        const view = wysiwygEditor.view;
+        const { state } = view;
+        const { selection } = state;
+        const { $from } = selection;
+        const parentNode = $from.parent;
+        
+        if (parentNode && parentNode.type.name === 'paragraph') {
+            const text = parentNode.textContent.trim();
+            if (text === '---' || text === '***' || text === '___') {
+                const startPos = $from.start();
+                const endPos = $from.end();
+                const tr = state.tr.delete(startPos, endPos);
+                view.dispatch(tr);
+                
+                notelabEditorInstance.exec('hr');
+                ev.preventDefault();
+                return;
+            }
+        }
     }
 }
 
@@ -290,6 +407,30 @@ function initNoteLabButtons() {
             setCropOverlayMode(!isActive);
         });
     }
+    
+    const previewBtn = document.getElementById("notelab-toggle-preview-btn");
+    if (previewBtn) {
+        previewBtn.addEventListener("click", () => {
+            if (notelabEditorInstance && notelabEditorInstance.isWysiwygMode()) {
+                return;
+            }
+            const editorWrapper = document.getElementById("notelab-markdown-editor");
+            if (editorWrapper) {
+                const isPreview = editorWrapper.classList.contains("notelab-preview-only");
+                if (isPreview) {
+                    editorWrapper.classList.remove("notelab-preview-only");
+                    editorWrapper.classList.add("notelab-editor-only");
+                    previewBtn.style.background = "";
+                    previewBtn.style.color = "";
+                } else {
+                    editorWrapper.classList.remove("notelab-editor-only");
+                    editorWrapper.classList.add("notelab-preview-only");
+                    previewBtn.style.background = "#1a73e8";
+                    previewBtn.style.color = "white";
+                }
+            }
+        });
+    }
 }
 
 function setCropOverlayMode(enabled) {
@@ -519,7 +660,7 @@ function renderPdfInIframeWithBase64(pdfPath, base64) {
     const iframe = document.getElementById("notelab-pdf-iframe");
     if (!iframe) return;
     
-    const viewerUrl = "pdf_viewer.html";
+    const viewerUrl = "pdf_viewer.html?v=" + new Date().getTime();
     
     const sendPdfData = () => {
         iframe.contentWindow.postMessage({
@@ -528,7 +669,7 @@ function renderPdfInIframeWithBase64(pdfPath, base64) {
         }, "*");
     };
     
-    if (!iframe.src.endsWith(viewerUrl)) {
+    if (!iframe.src.includes("pdf_viewer.html")) {
         iframe.onload = () => {
             sendPdfData();
             iframe.onload = null;
@@ -663,7 +804,7 @@ window.openMultipleInNoteLab = openMultipleInNoteLab;
 function insertMarkdownContent(markdown) {
     if (!notelabEditorInstance) return;
     
-    if (notelabEditorInstance.isWysiwyg()) {
+    if (notelabEditorInstance.getEditType() === 'wysiwyg') {
         const imageRegex = /!\[(.*?)\]\((.*?)\)/g;
         let match;
         let lastIdx = 0;
