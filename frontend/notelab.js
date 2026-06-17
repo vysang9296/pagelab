@@ -804,7 +804,7 @@ window.openMultipleInNoteLab = openMultipleInNoteLab;
 function insertMarkdownContent(markdown) {
     if (!notelabEditorInstance) return;
     
-    if (notelabEditorInstance.getEditType() === 'wysiwyg') {
+    if (notelabEditorInstance.isWysiwygMode()) {
         const imageRegex = /!\[(.*?)\]\((.*?)\)/g;
         let match;
         let lastIdx = 0;
