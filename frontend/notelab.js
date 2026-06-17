@@ -419,7 +419,7 @@ function initNoteLabButtons() {
             if (notelabEditorInstance && notelabEditorInstance.isWysiwygMode()) {
                 return;
             }
-            const editorWrapper = document.getElementById("notelab-markdown-editor");
+            const editorWrapper = document.getElementById("notelab-editor");
             if (editorWrapper) {
                 const isSplit = editorWrapper.classList.contains("notelab-split-view");
                 if (isSplit) {
@@ -431,8 +431,8 @@ function initNoteLabButtons() {
                     // Reset styling overrides so that editor takes 100% width
                     const editorPane = editorWrapper.querySelector('.toastui-editor-md-editor');
                     if (editorPane) {
-                        editorPane.style.width = "";
-                        editorPane.style.flex = "";
+                        editorPane.style.width = "100%";
+                        editorPane.style.flex = "1 1 100%";
                     }
                 } else {
                     editorWrapper.classList.remove("notelab-editor-only");
@@ -899,18 +899,33 @@ function markdownToHtmlSimple(markdown) {
     return htmlLines.join('<br />');
 }
 
+let splitterInitRetryCount = 0;
 function initNoteLabSplitterResizer() {
-    const editorWrapper = document.getElementById("notelab-markdown-editor");
+    const editorWrapper = document.getElementById("notelab-editor");
     if (!editorWrapper) return;
     
     const container = editorWrapper.querySelector('.toastui-editor-md-container');
-    if (!container) return;
+    if (!container) {
+        if (splitterInitRetryCount < 15) {
+            splitterInitRetryCount++;
+            setTimeout(initNoteLabSplitterResizer, 200);
+        }
+        return;
+    }
     
     const splitter = container.querySelector('.toastui-editor-md-splitter');
     const editorPane = container.querySelector('.toastui-editor-md-editor');
     const previewPane = container.querySelector('.toastui-editor-md-preview');
     
-    if (!splitter || !editorPane || !previewPane) return;
+    if (!splitter || !editorPane || !previewPane) {
+        if (splitterInitRetryCount < 15) {
+            splitterInitRetryCount++;
+            setTimeout(initNoteLabSplitterResizer, 200);
+        }
+        return;
+    }
+    
+    splitterInitRetryCount = 0; // Reset count on success
     
     // Make splitter look like a resizer
     splitter.style.cursor = 'col-resize';
