@@ -957,19 +957,23 @@ function initNoteLabSplitterResizer() {
         
         const containerRect = container.getBoundingClientRect();
         const containerWidth = containerRect.width;
-        const offsetLeft = e.clientX - containerRect.left;
+        let offsetLeft = e.clientX - containerRect.left;
         
-        // Boundaries (min 150px)
-        if (offsetLeft > 150 && (containerWidth - offsetLeft) > 150) {
-            const editorPct = (offsetLeft / containerWidth) * 100;
-            editorWrapper.dataset.lastEditorPct = editorPct;
-            
-            editorPane.style.width = `calc(${editorPct}% - 3px)`;
-            editorPane.style.flex = 'none';
-            
-            previewPane.style.width = `calc(${100 - editorPct}% - 3px)`;
-            previewPane.style.flex = 'none';
+        // Boundaries (min 200px for both editor and preview)
+        if (offsetLeft < 200) {
+            offsetLeft = 200;
+        } else if (containerWidth - offsetLeft < 200) {
+            offsetLeft = containerWidth - 200;
         }
+        
+        const editorPct = (offsetLeft / containerWidth) * 100;
+        editorWrapper.dataset.lastEditorPct = editorPct;
+        
+        editorPane.style.width = `calc(${editorPct}% - 3px)`;
+        editorPane.style.flex = 'none';
+        
+        previewPane.style.width = `calc(${100 - editorPct}% - 3px)`;
+        previewPane.style.flex = 'none';
     });
     
     document.addEventListener('mouseup', () => {
