@@ -469,21 +469,26 @@ function initNoteLabButtons() {
                     previewBtn.style.background = "";
                     previewBtn.style.color = "";
                     
-                    // Collapse preview and splitter completely, return editor to 100%
-                    if (editorPane) {
-                        editorPane.style.width = "100%";
-                        editorPane.style.flex = "1 1 100%";
-                    }
-                    if (previewPane) {
-                        previewPane.style.width = "0";
-                        previewPane.style.flex = "0";
-                        previewPane.style.display = "none";
-                    }
-                    if (splitter) {
-                        splitter.style.display = "none";
+                    // 1. Natively change preview style to tab (collapses preview panel completely and opens full editor)
+                    if (notelabEditorInstance) {
+                        notelabEditorInstance.changePreviewStyle('tab');
                     }
                     
-                    // Force Editor layout update to stretch to 100%
+                    // 2. Collapse preview and splitter inline styles completely, return editor to 100% using setProperty important
+                    if (editorPane) {
+                        editorPane.style.setProperty('width', '100%', 'important');
+                        editorPane.style.setProperty('flex', '1 1 100%', 'important');
+                    }
+                    if (previewPane) {
+                        previewPane.style.setProperty('width', '0', 'important');
+                        previewPane.style.setProperty('flex', '0', 'important');
+                        previewPane.style.setProperty('display', 'none', 'important');
+                    }
+                    if (splitter) {
+                        splitter.style.setProperty('display', 'none', 'important');
+                    }
+                    
+                    // 3. Force Editor layout update to stretch to 100%
                     if (notelabEditorInstance) {
                         notelabEditorInstance.layout();
                     }
@@ -493,28 +498,33 @@ function initNoteLabButtons() {
                     previewBtn.style.background = "#1a73e8";
                     previewBtn.style.color = "white";
                     
-                    // Show preview and splitter, apply percentage-based widths
+                    // 1. Natively change preview style back to vertical split view
+                    if (notelabEditorInstance) {
+                        notelabEditorInstance.changePreviewStyle('vertical');
+                    }
+                    
+                    // 2. Show preview and splitter, apply percentage-based widths using setProperty important
                     if (editorPane && previewPane) {
-                        previewPane.style.display = "block";
+                        previewPane.style.setProperty('display', 'block', 'important');
                         if (splitter) {
-                            splitter.style.display = "block";
+                            splitter.style.setProperty('display', 'block', 'important');
                         }
                         
                         const lastPct = editorWrapper.dataset.lastEditorPct;
                         if (lastPct) {
-                            editorPane.style.width = `calc(${lastPct}% - 3px)`;
-                            editorPane.style.flex = "none";
-                            previewPane.style.width = `calc(${100 - lastPct}% - 3px)`;
-                            previewPane.style.flex = "none";
+                            editorPane.style.setProperty('width', `calc(${lastPct}% - 3px)`, 'important');
+                            editorPane.style.setProperty('flex', 'none', 'important');
+                            previewPane.style.setProperty('width', `calc(${100 - lastPct}% - 3px)`, 'important');
+                            previewPane.style.setProperty('flex', 'none', 'important');
                         } else {
-                            editorPane.style.width = "calc(50% - 3px)";
-                            editorPane.style.flex = "none";
-                            previewPane.style.width = "calc(50% - 3px)";
-                            previewPane.style.flex = "none";
+                            editorPane.style.setProperty('width', 'calc(50% - 3px)', 'important');
+                            editorPane.style.setProperty('flex', 'none', 'important');
+                            previewPane.style.setProperty('width', 'calc(50% - 3px)', 'important');
+                            previewPane.style.setProperty('flex', 'none', 'important');
                         }
                     }
                     
-                    // Force Editor layout update to adjust size to 50% / custom split width
+                    // 3. Force Editor layout update to adjust size to 50% / custom split width
                     if (notelabEditorInstance) {
                         notelabEditorInstance.layout();
                     }
@@ -989,8 +999,10 @@ function initNoteLabSplitterResizer() {
     if (!splitter) {
         splitter = document.createElement('div');
         splitter.className = 'toastui-editor-md-splitter';
-        splitter.style.flex = 'none'; // flex box 찌부러짐 방지
-        splitter.style.width = '6px';
+        splitter.style.setProperty('flex', 'none', 'important'); // flex box 찌부러짐 방지
+        splitter.style.setProperty('width', '6px', 'important');
+        splitter.style.setProperty('position', 'relative', 'important');
+        splitter.style.setProperty('z-index', '10', 'important');
         container.insertBefore(splitter, previewPane);
     }
     
@@ -1014,6 +1026,7 @@ function initNoteLabSplitterResizer() {
     splitter.addEventListener('mousedown', (e) => {
         isResizing = true;
         document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none'; // Prevent text drag selection during resize
         e.preventDefault();
         
         // Prevent iframe from capturing mouse events during resize
@@ -1038,18 +1051,19 @@ function initNoteLabSplitterResizer() {
         const editorPct = (offsetLeft / containerWidth) * 100;
         editorWrapper.dataset.lastEditorPct = editorPct;
         
-        // Restore verified percentage width values
-        editorPane.style.width = `calc(${editorPct}% - 3px)`;
-        editorPane.style.flex = 'none';
+        // Use style.setProperty with important flag to bypass rigid TUI CSS rules
+        editorPane.style.setProperty('width', `calc(${editorPct}% - 3px)`, 'important');
+        editorPane.style.setProperty('flex', 'none', 'important');
         
-        previewPane.style.width = `calc(${100 - editorPct}% - 3px)`;
-        previewPane.style.flex = 'none';
+        previewPane.style.setProperty('width', `calc(${100 - editorPct}% - 3px)`, 'important');
+        previewPane.style.setProperty('flex', 'none', 'important');
     });
     
     document.addEventListener('mouseup', () => {
         if (isResizing) {
             isResizing = false;
             document.body.style.cursor = 'default';
+            document.body.style.userSelect = ''; // Restore text selection
             splitter.style.background = '#ccc';
             
             const iframe = document.getElementById("notelab-pdf-iframe");
