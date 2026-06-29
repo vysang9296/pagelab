@@ -63,12 +63,12 @@ function initNoteLabEditor() {
                 const editorPane = editorWrapper.querySelector('.toastui-editor-md-editor');
                 const previewPane = editorWrapper.querySelector('.toastui-editor-md-preview');
                 if (editorPane) {
-                    editorPane.style.flex = "1 1 0%";
                     editorPane.style.width = "100%";
+                    editorPane.style.flex = "1 1 100%";
                 }
                 if (previewPane) {
-                    previewPane.style.flex = "0";
                     previewPane.style.width = "0";
+                    previewPane.style.flex = "0";
                     previewPane.style.display = "none";
                 }
             }
