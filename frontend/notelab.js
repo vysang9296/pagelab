@@ -61,26 +61,31 @@ function initNoteLabEditor() {
         // Initialize custom splitter resizer and sync width after editor is created and rendered
         setTimeout(() => {
             const editorWrapper = document.getElementById("notelab-editor");
-            if (editorWrapper && editorWrapper.classList.contains("notelab-editor-only")) {
-                const editorPane = editorWrapper.querySelector('.toastui-editor-md-editor');
-                const previewPane = editorWrapper.querySelector('.toastui-editor-md-preview');
-                
-                // Natively set preview style to 'tab' to expand editor width to 100%
-                if (notelabEditorInstance) {
-                    notelabEditorInstance.changePreviewStyle('tab');
-                }
-                
-                if (editorPane) {
-                    editorPane.style.setProperty('width', '100%', 'important');
-                    editorPane.style.setProperty('flex', '1 1 100%', 'important');
-                }
-                if (previewPane) {
-                    previewPane.style.setProperty('width', '0', 'important');
-                    previewPane.style.setProperty('flex', '0', 'important');
-                    previewPane.style.setProperty('display', 'none', 'important');
+            if (editorWrapper) {
+                if (editorWrapper.classList.contains("notelab-editor-only")) {
+                    // Natively set preview style to 'tab' to expand editor width to 100%
+                    if (notelabEditorInstance) {
+                        notelabEditorInstance.changePreviewStyle('tab');
+                    }
+                    
+                    // Delay style application to ensure TUI Editor DOM change completes first
+                    setTimeout(() => {
+                        const editorPane = editorWrapper.querySelector('.toastui-editor-md-editor');
+                        const previewPane = editorWrapper.querySelector('.toastui-editor-md-preview');
+                        if (editorPane) {
+                            editorPane.style.setProperty('width', '100%', 'important');
+                            editorPane.style.setProperty('flex', '1 1 100%', 'important');
+                        }
+                        if (previewPane) {
+                            previewPane.style.setProperty('width', '0', 'important');
+                            previewPane.style.setProperty('flex', '0', 'important');
+                            previewPane.style.setProperty('display', 'none', 'important');
+                        }
+                    }, 50);
+                } else {
+                    initNoteLabSplitterResizer();
                 }
             }
-            initNoteLabSplitterResizer();
         }, 150);
     }
 }
@@ -448,9 +453,6 @@ function initNoteLabButtons() {
             const editorWrapper = document.getElementById("notelab-editor");
             if (editorWrapper) {
                 const isSplit = editorWrapper.classList.contains("notelab-split-view");
-                const editorPane = editorWrapper.querySelector('.toastui-editor-md-editor');
-                const previewPane = editorWrapper.querySelector('.toastui-editor-md-preview');
-                const splitter = editorWrapper.querySelector('.toastui-editor-md-splitter');
                 
                 if (isSplit) {
                     editorWrapper.classList.remove("notelab-split-view");
@@ -458,59 +460,65 @@ function initNoteLabButtons() {
                     previewBtn.style.background = "";
                     previewBtn.style.color = "";
                     
-                    // 1. Natively change preview style to tab (collapses preview panel completely and opens full editor)
                     if (notelabEditorInstance) {
                         notelabEditorInstance.changePreviewStyle('tab');
                     }
                     
-                    // 2. Collapse preview and splitter inline styles completely, return editor to 100% using setProperty important
-                    if (editorPane) {
-                        editorPane.style.setProperty('width', '100%', 'important');
-                        editorPane.style.setProperty('flex', '1 1 100%', 'important');
-                    }
-                    if (previewPane) {
-                        previewPane.style.setProperty('width', '0', 'important');
-                        previewPane.style.setProperty('flex', '0', 'important');
-                        previewPane.style.setProperty('display', 'none', 'important');
-                    }
-                    if (splitter) {
-                        splitter.style.setProperty('display', 'none', 'important');
-                    }
-                    
-
+                    setTimeout(() => {
+                        const freshEditorPane = editorWrapper.querySelector('.toastui-editor-md-editor');
+                        const freshPreviewPane = editorWrapper.querySelector('.toastui-editor-md-preview');
+                        const freshSplitter = editorWrapper.querySelector('.toastui-editor-md-splitter');
+                        
+                        if (freshEditorPane) {
+                            freshEditorPane.style.setProperty('width', '100%', 'important');
+                            freshEditorPane.style.setProperty('flex', '1 1 100%', 'important');
+                        }
+                        if (freshPreviewPane) {
+                            freshPreviewPane.style.setProperty('width', '0', 'important');
+                            freshPreviewPane.style.setProperty('flex', '0', 'important');
+                            freshPreviewPane.style.setProperty('display', 'none', 'important');
+                        }
+                        if (freshSplitter) {
+                            freshSplitter.style.setProperty('display', 'none', 'important');
+                        }
+                    }, 50);
                 } else {
                     editorWrapper.classList.remove("notelab-editor-only");
                     editorWrapper.classList.add("notelab-split-view");
                     previewBtn.style.background = "#1a73e8";
                     previewBtn.style.color = "white";
                     
-                    // 1. Natively change preview style back to vertical split view
                     if (notelabEditorInstance) {
                         notelabEditorInstance.changePreviewStyle('vertical');
                     }
                     
-                    // 2. Show preview and splitter, apply percentage-based widths using setProperty important
-                    if (editorPane && previewPane) {
-                        previewPane.style.setProperty('display', 'block', 'important');
-                        if (splitter) {
-                            splitter.style.setProperty('display', 'block', 'important');
-                        }
+                    setTimeout(() => {
+                        initNoteLabSplitterResizer();
                         
-                        const lastPct = editorWrapper.dataset.lastEditorPct;
-                        if (lastPct) {
-                            editorPane.style.setProperty('width', `calc(${lastPct}% - 3px)`, 'important');
-                            editorPane.style.setProperty('flex', 'none', 'important');
-                            previewPane.style.setProperty('width', `calc(${100 - lastPct}% - 3px)`, 'important');
-                            previewPane.style.setProperty('flex', 'none', 'important');
-                        } else {
-                            editorPane.style.setProperty('width', 'calc(50% - 3px)', 'important');
-                            editorPane.style.setProperty('flex', 'none', 'important');
-                            previewPane.style.setProperty('width', 'calc(50% - 3px)', 'important');
-                            previewPane.style.setProperty('flex', 'none', 'important');
+                        const freshEditorPane = editorWrapper.querySelector('.toastui-editor-md-editor');
+                        const freshPreviewPane = editorWrapper.querySelector('.toastui-editor-md-preview');
+                        const freshSplitter = editorWrapper.querySelector('.toastui-editor-md-splitter');
+                        
+                        if (freshEditorPane && freshPreviewPane) {
+                            freshPreviewPane.style.setProperty('display', 'block', 'important');
+                            if (freshSplitter) {
+                                freshSplitter.style.setProperty('display', 'block', 'important');
+                            }
+                            
+                            const lastPct = editorWrapper.dataset.lastEditorPct;
+                            if (lastPct) {
+                                freshEditorPane.style.setProperty('width', `calc(${lastPct}% - 3px)`, 'important');
+                                freshEditorPane.style.setProperty('flex', 'none', 'important');
+                                freshPreviewPane.style.setProperty('width', `calc(${100 - lastPct}% - 3px)`, 'important');
+                                freshPreviewPane.style.setProperty('flex', 'none', 'important');
+                            } else {
+                                freshEditorPane.style.setProperty('width', 'calc(50% - 3px)', 'important');
+                                freshEditorPane.style.setProperty('flex', 'none', 'important');
+                                freshPreviewPane.style.setProperty('width', 'calc(50% - 3px)', 'important');
+                                freshPreviewPane.style.setProperty('flex', 'none', 'important');
+                            }
                         }
-                    }
-                    
-
+                    }, 50);
                 }
             }
         });
