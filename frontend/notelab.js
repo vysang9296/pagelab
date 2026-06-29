@@ -69,14 +69,20 @@ function initNoteLabEditor() {
             if (editorWrapper && editorWrapper.classList.contains("notelab-editor-only")) {
                 const editorPane = editorWrapper.querySelector('.toastui-editor-md-editor');
                 const previewPane = editorWrapper.querySelector('.toastui-editor-md-preview');
+                
+                // Natively set preview style to 'tab' to expand editor width to 100%
+                if (notelabEditorInstance) {
+                    notelabEditorInstance.changePreviewStyle('tab');
+                }
+                
                 if (editorPane) {
-                    editorPane.style.width = "100%";
-                    editorPane.style.flex = "1 1 100%";
+                    editorPane.style.setProperty('width', '100%', 'important');
+                    editorPane.style.setProperty('flex', '1 1 100%', 'important');
                 }
                 if (previewPane) {
-                    previewPane.style.width = "0";
-                    previewPane.style.flex = "0";
-                    previewPane.style.display = "none";
+                    previewPane.style.setProperty('width', '0', 'important');
+                    previewPane.style.setProperty('flex', '0', 'important');
+                    previewPane.style.setProperty('display', 'none', 'important');
                 }
             }
             initNoteLabSplitterResizer();
