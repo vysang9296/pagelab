@@ -489,7 +489,10 @@ function initNoteLabButtons() {
                     previewBtn.style.color = "white";
                     
                     if (notelabEditorInstance) {
+                        const currentMarkdown = notelabEditorInstance.getMarkdown();
                         notelabEditorInstance.changePreviewStyle('vertical');
+                        // Force refresh markdown value to trigger TUI Editor's rendering engine instantly
+                        notelabEditorInstance.setMarkdown(currentMarkdown, false);
                     }
                     
                     setTimeout(() => {
@@ -999,17 +1002,19 @@ function initNoteLabSplitterResizer() {
     
     splitterInitRetryCount = 0; // Reset count on success
     
-    // Make splitter look like a resizer
-    splitter.style.cursor = 'col-resize';
-    splitter.style.width = '6px';
-    splitter.style.background = '#ccc';
-    splitter.style.transition = 'background 0.2s';
+    // Make splitter look like a resizer using style.setProperty to defeat rigid TUI Editor internal CSS
+    splitter.style.setProperty('cursor', 'col-resize', 'important');
+    splitter.style.setProperty('width', '6px', 'important');
+    splitter.style.setProperty('background', '#ccc', 'important');
+    splitter.style.setProperty('transition', 'background 0.2s', 'important');
     
     splitter.addEventListener('mouseenter', () => {
-        splitter.style.background = '#0078d4';
+        splitter.style.setProperty('background', '#0078d4', 'important');
     });
     splitter.addEventListener('mouseleave', () => {
-        if (!isResizing) splitter.style.background = '#ccc';
+        if (!isResizing) {
+            splitter.style.setProperty('background', '#ccc', 'important');
+        }
     });
     
     let isResizing = false;
@@ -1055,7 +1060,7 @@ function initNoteLabSplitterResizer() {
             isResizing = false;
             document.body.style.cursor = 'default';
             document.body.style.userSelect = ''; // Restore text selection
-            splitter.style.background = '#ccc';
+            splitter.style.setProperty('background', '#ccc', 'important');
             
             const iframe = document.getElementById("notelab-pdf-iframe");
             if (iframe) iframe.style.pointerEvents = "auto";
