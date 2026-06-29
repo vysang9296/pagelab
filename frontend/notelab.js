@@ -33,12 +33,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
     
-    // Force TUI Editor layout calculation on window resizing (maximize, window scale changes)
-    window.addEventListener("resize", () => {
-        if (notelabEditorInstance) {
-            notelabEditorInstance.layout();
-        }
-    });
+
 });
 
 function initNoteLabEditor() {
@@ -231,10 +226,7 @@ function initNoteLabResizer() {
             viewer.style.width = `${newViewerWidth}px`;
             editor.style.width = `${newEditorWidth}px`;
             
-            // Force TUI Editor layout refresh during drag resizing
-            if (notelabEditorInstance) {
-                notelabEditorInstance.layout();
-            }
+
         }
     });
     
@@ -245,10 +237,7 @@ function initNoteLabResizer() {
             const iframe = document.getElementById("notelab-pdf-iframe");
             if (iframe) iframe.style.pointerEvents = "auto";
             
-            // Recalculate layout once more at the end of drag to lock details
-            if (notelabEditorInstance) {
-                notelabEditorInstance.layout();
-            }
+
         }
     });
 }
@@ -488,10 +477,7 @@ function initNoteLabButtons() {
                         splitter.style.setProperty('display', 'none', 'important');
                     }
                     
-                    // 3. Force Editor layout update to stretch to 100%
-                    if (notelabEditorInstance) {
-                        notelabEditorInstance.layout();
-                    }
+
                 } else {
                     editorWrapper.classList.remove("notelab-editor-only");
                     editorWrapper.classList.add("notelab-split-view");
@@ -524,10 +510,7 @@ function initNoteLabButtons() {
                         }
                     }
                     
-                    // 3. Force Editor layout update to adjust size to 50% / custom split width
-                    if (notelabEditorInstance) {
-                        notelabEditorInstance.layout();
-                    }
+
                 }
             }
         });
