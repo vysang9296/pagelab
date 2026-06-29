@@ -921,16 +921,22 @@ function initNoteLabSplitterResizer() {
         return;
     }
     
-    const splitter = container.querySelector('.toastui-editor-md-splitter');
     const editorPane = container.querySelector('.toastui-editor-md-editor');
     const previewPane = container.querySelector('.toastui-editor-md-preview');
     
-    if (!splitter || !editorPane || !previewPane) {
+    if (!editorPane || !previewPane) {
         if (splitterInitRetryCount < 15) {
             splitterInitRetryCount++;
             setTimeout(initNoteLabSplitterResizer, 200);
         }
         return;
+    }
+    
+    let splitter = container.querySelector('.toastui-editor-md-splitter');
+    if (!splitter) {
+        splitter = document.createElement('div');
+        splitter.className = 'toastui-editor-md-splitter';
+        container.insertBefore(splitter, previewPane);
     }
     
     splitterInitRetryCount = 0; // Reset count on success
