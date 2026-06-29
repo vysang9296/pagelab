@@ -32,6 +32,13 @@ document.addEventListener("DOMContentLoaded", () => {
             checkSystemPreflightStatus();
         });
     }
+    
+    // Force TUI Editor layout calculation on window resizing (maximize, window scale changes)
+    window.addEventListener("resize", () => {
+        if (notelabEditorInstance) {
+            notelabEditorInstance.layout();
+        }
+    });
 });
 
 function initNoteLabEditor() {
@@ -217,6 +224,11 @@ function initNoteLabResizer() {
             viewer.style.flex = "none";
             viewer.style.width = `${newViewerWidth}px`;
             editor.style.width = `${newEditorWidth}px`;
+            
+            // Force TUI Editor layout refresh during drag resizing
+            if (notelabEditorInstance) {
+                notelabEditorInstance.layout();
+            }
         }
     });
     
@@ -226,6 +238,11 @@ function initNoteLabResizer() {
             document.body.style.cursor = "default";
             const iframe = document.getElementById("notelab-pdf-iframe");
             if (iframe) iframe.style.pointerEvents = "auto";
+            
+            // Recalculate layout once more at the end of drag to lock details
+            if (notelabEditorInstance) {
+                notelabEditorInstance.layout();
+            }
         }
     });
 }
