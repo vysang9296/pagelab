@@ -476,3 +476,9 @@ mark { background-color: #fce8e6; color: var(--danger-red); padding: 0 2px; bord
 .toastui-editor-defaultUI .toastui-editor-md-container .toastui-editor-contents {
     max-width: 100% !important;
 }
+
+/* 부모 컨테이너를 강제 flexbox로 전환하여 에디터, 스플리터, 미리보기가 가로로 나란히 안착되도록 보장 */
+.toastui-editor-defaultUI .toastui-editor-md-container {
+    display: flex !important;
+    flex-direction: row !important;
+}
