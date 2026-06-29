@@ -482,3 +482,8 @@ mark { background-color: #fce8e6; color: var(--danger-red); padding: 0 2px; bord
     display: flex !important;
     flex-direction: row !important;
 }
+
+/* tab 모드 전환 시 생겨나는 TUI Editor 상단 탭 단추를 강제로 숨김 */
+.toastui-editor-defaultUI .toastui-editor-tabs {
+    display: none !important;
+}

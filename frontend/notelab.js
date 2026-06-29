@@ -3,6 +3,10 @@ let currentOpenedDocPath = "";
 let currentOpenedDocPaths = [];
 let systemPreflightStatus = { kordoc: false, ocr_korean: false };
 
+// Global resizing states for NoteLab splitter to prevent multiple event listener binding conflicts
+let isNoteLabSplitterResizing = false;
+let isNoteLabSplitterListenersBound = false;
+
 document.addEventListener("DOMContentLoaded", () => {
     // Add event listeners to nav tabs
     const tabs = document.querySelectorAll(".nav-tab");
@@ -1012,15 +1016,14 @@ function initNoteLabSplitterResizer() {
         splitter.style.setProperty('background', '#0078d4', 'important');
     });
     splitter.addEventListener('mouseleave', () => {
-        if (!isResizing) {
+        if (!isNoteLabSplitterResizing) {
             splitter.style.setProperty('background', '#ccc', 'important');
         }
     });
     
-    let isResizing = false;
-    
-    splitter.addEventListener('mousedown', (e) => {
-        isResizing = true;
+    // Overwrite splitter mousedown event listener to prevent duplicate bindings
+    splitter.onmousedown = (e) => {
+        isNoteLabSplitterResizing = true;
         document.body.style.cursor = 'col-resize';
         document.body.style.userSelect = 'none'; // Prevent text drag selection during resize
         e.preventDefault();
@@ -1028,43 +1031,64 @@ function initNoteLabSplitterResizer() {
         // Prevent iframe from capturing mouse events during resize
         const iframe = document.getElementById("notelab-pdf-iframe");
         if (iframe) iframe.style.pointerEvents = "none";
-    });
+    };
     
-    document.addEventListener('mousemove', (e) => {
-        if (!isResizing) return;
-        
-        const containerRect = container.getBoundingClientRect();
-        const containerWidth = containerRect.width;
-        let offsetLeft = e.clientX - containerRect.left;
-        
-        // Boundaries (min 200px for both editor and preview)
-        if (offsetLeft < 200) {
-            offsetLeft = 200;
-        } else if (containerWidth - offsetLeft < 200) {
-            offsetLeft = containerWidth - 200;
-        }
-        
-        const editorPct = (offsetLeft / containerWidth) * 100;
-        editorWrapper.dataset.lastEditorPct = editorPct;
-        
-        // Use style.setProperty with important flag to bypass rigid TUI CSS rules
-        editorPane.style.setProperty('width', `calc(${editorPct}% - 3px)`, 'important');
-        editorPane.style.setProperty('flex', 'none', 'important');
-        
-        previewPane.style.setProperty('width', `calc(${100 - editorPct}% - 3px)`, 'important');
-        previewPane.style.setProperty('flex', 'none', 'important');
-    });
-    
-    document.addEventListener('mouseup', () => {
-        if (isResizing) {
-            isResizing = false;
-            document.body.style.cursor = 'default';
-            document.body.style.userSelect = ''; // Restore text selection
-            splitter.style.setProperty('background', '#ccc', 'important');
+    // Bind mousemove and mouseup listeners to document only once to prevent duplicate binding conflicts
+    if (!isNoteLabSplitterListenersBound) {
+        document.addEventListener('mousemove', (e) => {
+            if (!isNoteLabSplitterResizing) return;
             
-            const iframe = document.getElementById("notelab-pdf-iframe");
-            if (iframe) iframe.style.pointerEvents = "auto";
-        }
-    });
+            const freshWrapper = document.getElementById("notelab-editor");
+            if (!freshWrapper) return;
+            const freshContainer = freshWrapper.querySelector('.toastui-editor-md-container');
+            if (!freshContainer) return;
+            const freshEditorPane = freshContainer.querySelector('.toastui-editor-md-editor');
+            const freshPreviewPane = freshContainer.querySelector('.toastui-editor-md-preview');
+            
+            if (!freshEditorPane || !freshPreviewPane) return;
+            
+            const containerRect = freshContainer.getBoundingClientRect();
+            const containerWidth = containerRect.width;
+            let offsetLeft = e.clientX - containerRect.left;
+            
+            // Boundaries (min 200px for both editor and preview)
+            if (offsetLeft < 200) {
+                offsetLeft = 200;
+            } else if (containerWidth - offsetLeft < 200) {
+                offsetLeft = containerWidth - 200;
+            }
+            
+            const editorPct = (offsetLeft / containerWidth) * 100;
+            freshWrapper.dataset.lastEditorPct = editorPct;
+            
+            // Use style.setProperty with important flag to bypass rigid TUI CSS rules
+            freshEditorPane.style.setProperty('width', `calc(${editorPct}% - 3px)`, 'important');
+            freshEditorPane.style.setProperty('flex', 'none', 'important');
+            
+            freshPreviewPane.style.setProperty('width', `calc(${100 - editorPct}% - 3px)`, 'important');
+            freshPreviewPane.style.setProperty('flex', 'none', 'important');
+        });
+        
+        document.addEventListener('mouseup', () => {
+            if (isNoteLabSplitterResizing) {
+                isNoteLabSplitterResizing = false;
+                document.body.style.cursor = 'default';
+                document.body.style.userSelect = ''; // Restore text selection
+                
+                const freshWrapper = document.getElementById("notelab-editor");
+                if (freshWrapper) {
+                    const freshSplitter = freshWrapper.querySelector('.toastui-editor-md-splitter');
+                    if (freshSplitter) {
+                        freshSplitter.style.setProperty('background', '#ccc', 'important');
+                    }
+                }
+                
+                const iframe = document.getElementById("notelab-pdf-iframe");
+                if (iframe) iframe.style.pointerEvents = "auto";
+            }
+        });
+        
+        isNoteLabSplitterListenersBound = true;
+    }
 }
 
