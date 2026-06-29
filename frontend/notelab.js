@@ -56,8 +56,16 @@ function initNoteLabEditor() {
             }
         });
         
-        // Initialize custom splitter resizer after editor is created and rendered
+        // Initialize custom splitter resizer and sync width after editor is created and rendered
         setTimeout(() => {
+            const editorWrapper = document.getElementById("notelab-editor");
+            if (editorWrapper && editorWrapper.classList.contains("notelab-editor-only")) {
+                const editorPane = editorWrapper.querySelector('.toastui-editor-md-editor');
+                if (editorPane) {
+                    editorPane.style.width = "100%";
+                    editorPane.style.flex = "1 1 100%";
+                }
+            }
             initNoteLabSplitterResizer();
         }, 150);
     }
