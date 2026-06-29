@@ -476,6 +476,11 @@ function initNoteLabButtons() {
                     if (splitter) {
                         splitter.style.display = "none";
                     }
+                    
+                    // Force Editor layout update to stretch to 100%
+                    if (notelabEditorInstance) {
+                        notelabEditorInstance.layout();
+                    }
                 } else {
                     editorWrapper.classList.remove("notelab-editor-only");
                     editorWrapper.classList.add("notelab-split-view");
@@ -501,6 +506,11 @@ function initNoteLabButtons() {
                             previewPane.style.width = "calc(50% - 3px)";
                             previewPane.style.flex = "none";
                         }
+                    }
+                    
+                    // Force Editor layout update to adjust size to 50% / custom split width
+                    if (notelabEditorInstance) {
+                        notelabEditorInstance.layout();
                     }
                 }
             }
