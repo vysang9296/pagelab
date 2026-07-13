@@ -46,28 +46,114 @@ class KordocParserAdapter:
             "success": True
         }
 
-    def patch_document(self, original_path: str, edited_markdown: str, output_path: str) -> bool:
+    def patch_document(self, original_path: str, edited_markdown: str, output_path: str) -> Dict[str, Any]:
+        """
+        Apply edited markdown back onto original HWP/HWPX preserving formatting.
+        Returns {"success": bool, "error": str|None, "backup_path": str|None, "output_path": str|None}
+        """
         if not os.path.exists(original_path):
-            raise FileNotFoundError(f"Original file not found: {original_path}")
-            
-        # Create .bak backup copy to prevent original corruption
+            return {
+                "success": False,
+                "error": f"원본 파일이 없습니다: {original_path}",
+                "backup_path": None,
+                "output_path": None,
+            }
+
+        ext = os.path.splitext(original_path)[1].lower()
+        if ext not in (".hwp", ".hwpx"):
+            return {
+                "success": False,
+                "error": (
+                    "HWPX 패치는 .hwp / .hwpx 원본만 지원합니다. "
+                    f"현재 원본: {ext or '(확장자 없음)'} — PDF/이미지에서는 역패치할 수 없습니다."
+                ),
+                "backup_path": None,
+                "output_path": None,
+            }
+
+        if not os.path.exists(self.exe_path):
+            return {
+                "success": False,
+                "error": f"kordoc.exe를 찾을 수 없습니다: {self.exe_path}",
+                "backup_path": None,
+                "output_path": None,
+            }
+
+        # Ensure output extension stays HWP family (default to original ext)
+        out_ext = os.path.splitext(output_path)[1].lower()
+        if out_ext not in (".hwp", ".hwpx"):
+            output_path = output_path + ext
+
+        out_dir = os.path.dirname(os.path.abspath(output_path))
+        if out_dir and not os.path.exists(out_dir):
+            try:
+                os.makedirs(out_dir, exist_ok=True)
+            except Exception as e:
+                return {
+                    "success": False,
+                    "error": f"출력 폴더를 만들 수 없습니다: {e}",
+                    "backup_path": None,
+                    "output_path": None,
+                }
+
+        # Backup original only (never overwrite original without a .bak next to it)
         backup_path = original_path + ".bak"
         try:
+            # Skip re-backup if output is a different path and original already has recent bak? Always refresh bak.
             shutil.copy2(original_path, backup_path)
         except Exception as e:
-            print(f"Failed to create backup copy: {e}")
-            return False
-            
+            return {
+                "success": False,
+                "error": f"원본 백업(.bak) 생성 실패: {e}",
+                "backup_path": None,
+                "output_path": None,
+            }
+
         temp_md_path = f"{original_path}.temp.md"
         try:
             with open(temp_md_path, "w", encoding="utf-8") as f:
                 f.write(edited_markdown)
-                
+
             cmd = [self.exe_path, "patch", original_path, temp_md_path, "-o", output_path]
-            result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8")
-            return result.returncode == 0
-        except Exception:
-            return False
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+            )
+            if result.returncode != 0:
+                err_msg = (result.stderr or result.stdout or "").strip()
+                if not err_msg:
+                    err_msg = f"kordoc patch 실패 (exit {result.returncode})"
+                return {
+                    "success": False,
+                    "error": err_msg,
+                    "backup_path": backup_path,
+                    "output_path": None,
+                }
+
+            if not os.path.exists(output_path):
+                return {
+                    "success": False,
+                    "error": "kordoc이 성공을 반환했으나 출력 파일이 생성되지 않았습니다.",
+                    "backup_path": backup_path,
+                    "output_path": None,
+                }
+
+            return {
+                "success": True,
+                "error": None,
+                "backup_path": backup_path,
+                "output_path": output_path,
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": str(e),
+                "backup_path": backup_path,
+                "output_path": None,
+            }
         finally:
             if os.path.exists(temp_md_path):
                 try:

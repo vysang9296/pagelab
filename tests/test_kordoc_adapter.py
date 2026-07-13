@@ -27,19 +27,34 @@ class TestKordocAdapter(unittest.TestCase):
     @patch('subprocess.run')
     @patch('os.path.exists')
     def test_patch_document_success(self, mock_exists, mock_run, mock_copy):
-        mock_exists.side_effect = lambda p: True
+        def exists_side_effect(p):
+            # original + exe + final output exist
+            return True
+        mock_exists.side_effect = exists_side_effect
         mock_res = MagicMock()
         mock_res.returncode = 0
+        mock_res.stderr = ""
+        mock_res.stdout = ""
         mock_run.return_value = mock_res
         
         # Mock open to write temp md
         with patch('builtins.open', unittest.mock.mock_open()):
             adapter = KordocParserAdapter("backend/bin/kordoc.exe")
-            success = adapter.patch_document("dummy.hwpx", "# edited md", "out.hwpx")
+            result = adapter.patch_document("dummy.hwpx", "# edited md", "out.hwpx")
             
-            self.assertTrue(success)
+            self.assertTrue(result["success"])
+            self.assertEqual(result["output_path"], "out.hwpx")
+            self.assertEqual(result["backup_path"], "dummy.hwpx.bak")
             mock_copy.assert_called_with("dummy.hwpx", "dummy.hwpx.bak")
             mock_run.assert_called_once()
+
+    @patch('os.path.exists')
+    def test_patch_document_rejects_pdf(self, mock_exists):
+        mock_exists.return_value = True
+        adapter = KordocParserAdapter("backend/bin/kordoc.exe")
+        result = adapter.patch_document("dummy.pdf", "# edited", "out.hwpx")
+        self.assertFalse(result["success"])
+        self.assertIn("hwp", result["error"].lower())
 
     @patch('subprocess.run')
     @patch('os.path.exists')

@@ -25,7 +25,7 @@ class TestAiAnalyzer(unittest.TestCase):
         mock_summarize.return_value = "요약 테스트."
         from main import Api
         api = Api()
-        res = api.notelab_analyze_text("테스트 본문")
+        res = api.notelab_analyze_text("테스트 본문", mode="keywords")
         self.assertTrue(res["success"])
         self.assertEqual(res["keywords"], ["한글", "핵심"])
         self.assertEqual(res["summary"], "요약 테스트.")

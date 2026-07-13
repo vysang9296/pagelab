@@ -70,6 +70,7 @@ class TestRefinerCache(unittest.TestCase):
             res = api.notelab_save_markdown(temp_save_path, content_with_image)
             self.assertTrue(res["success"])
             self.assertTrue(os.path.exists(temp_save_path))
+            self.assertIn("path", res)
             
             # Verify that attachments/test_crop.png was copied to target note folder
             copied_crop = os.path.join(base_dir, "tests", "notes", "attachments", "test_crop.png")
@@ -88,6 +89,25 @@ class TestRefinerCache(unittest.TestCase):
             notes_dir = os.path.join(base_dir, "tests", "notes")
             if os.path.exists(notes_dir):
                 os.rmdir(notes_dir)
+
+    def test_notelab_load_markdown(self):
+        from main import Api
+        api = Api()
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        temp_md = os.path.join(base_dir, "tests", "notes_load_test.md")
+        body = "# 불러오기 테스트\n\n본문입니다.\n"
+        try:
+            with open(temp_md, "w", encoding="utf-8") as f:
+                f.write(body)
+            res = api.notelab_load_markdown(temp_md)
+            self.assertTrue(res["success"])
+            self.assertIn("불러오기 테스트", res["content"])
+            self.assertTrue(
+                res["path"].endswith("notes_load_test.md") or "notes_load_test.md" in res["path"]
+            )
+        finally:
+            if os.path.exists(temp_md):
+                os.remove(temp_md)
 
 if __name__ == '__main__':
     unittest.main()

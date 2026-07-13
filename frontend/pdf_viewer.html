@@ -127,54 +127,100 @@
     <script>
         let pdfDoc = null;
         let activeSelection = null;
+        /** 미니메뉴용 스냅샷 — 메뉴 클릭 시 selection이 풀려도 유지 */
         let selectedText = "";
         
+        function hideMiniMenu() {
+            const menu = document.getElementById("fl-mini-menu");
+            if (menu) menu.style.display = "none";
+        }
+        
+        function showMiniMenu(clientX, clientY) {
+            const menu = document.getElementById("fl-mini-menu");
+            if (!menu || !selectedText) return;
+            menu.style.display = "flex";
+            // pageX/Y 대신 client + scroll 로 스크롤 후에도 위치 안정
+            const x = (clientX || 0) + (window.scrollX || 0) + 10;
+            const y = (clientY || 0) + (window.scrollY || 0) + 10;
+            menu.style.left = x + "px";
+            menu.style.top = y + "px";
+        }
+        
+        function refineSelectedText(raw) {
+            return String(raw || "").replace(/\r?\n/g, " ").replace(/\s+/g, " ").trim();
+        }
+        
         document.addEventListener("mouseup", (e) => {
+            const menu = document.getElementById("fl-mini-menu");
+            // 미니메뉴 클릭 후 mouseup — selection 비어도 메뉴/스냅샷 유지
+            if (menu && menu.contains(e.target)) {
+                return;
+            }
             const overlay = document.querySelector('.selection-overlay');
             if (overlay && window.getComputedStyle(overlay).pointerEvents !== 'none') {
                 return;
             }
             const selection = window.getSelection();
-            const text = selection.toString().trim();
-            const menu = document.getElementById("fl-mini-menu");
+            const text = selection ? selection.toString().trim() : "";
             if (text) {
                 selectedText = text;
-                menu.style.display = "flex";
-                menu.style.left = (e.pageX + 10) + "px";
-                menu.style.top = (e.pageY + 10) + "px";
-            } else {
-                if (menu && !menu.contains(e.target)) {
-                    menu.style.display = "none";
-                }
+                showMiniMenu(e.clientX, e.clientY);
+            } else if (menu && !menu.contains(e.target)) {
+                hideMiniMenu();
             }
         });
         
         document.addEventListener("mousedown", (e) => {
             const menu = document.getElementById("fl-mini-menu");
-            if (menu && menu.style.display === "flex" && !menu.contains(e.target)) {
-                menu.style.display = "none";
+            if (!menu) return;
+            // 메뉴 위 mousedown: 기본 동작 막아서 PDF 텍스트 selection 붕괴 방지
+            if (menu.contains(e.target)) {
+                e.preventDefault();
+                return;
+            }
+            if (menu.style.display === "flex" || menu.style.display === "block") {
+                hideMiniMenu();
             }
         });
         
-        document.getElementById("btn-mini-copy").addEventListener("click", () => {
-            navigator.clipboard.writeText(selectedText);
-            document.getElementById("fl-mini-menu").style.display = "none";
+        document.getElementById("btn-mini-copy").addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const text = selectedText;
+            if (text) {
+                navigator.clipboard.writeText(text).catch(() => {});
+            }
+            hideMiniMenu();
+            try { window.getSelection().removeAllRanges(); } catch (err) {}
         });
         
-        document.getElementById("btn-mini-refine-copy").addEventListener("click", () => {
-            const refined = selectedText.replace(/\r?\n/g, ' ').replace(/\s+/g, ' ').trim();
-            navigator.clipboard.writeText(refined);
-            document.getElementById("fl-mini-menu").style.display = "none";
+        document.getElementById("btn-mini-refine-copy").addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const refined = refineSelectedText(selectedText);
+            if (refined) {
+                navigator.clipboard.writeText(refined).catch(() => {});
+            }
+            hideMiniMenu();
+            try { window.getSelection().removeAllRanges(); } catch (err) {}
         });
         
-        document.getElementById("btn-mini-send").addEventListener("click", () => {
-            const refined = selectedText.replace(/\r?\n/g, ' ').replace(/\s+/g, ' ').trim();
+        document.getElementById("btn-mini-send").addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const refined = refineSelectedText(selectedText);
+            if (!refined) {
+                hideMiniMenu();
+                return;
+            }
+            // 스냅샷을 즉시 비우지 않고 전송 후 클리어 (연타 시 빈 전송 방지용 플래그)
             window.parent.postMessage({
                 type: "INSERT_TEXT",
                 text: "\n" + refined + "\n"
             }, "*");
-            document.getElementById("fl-mini-menu").style.display = "none";
-            window.getSelection().removeAllRanges();
+            hideMiniMenu();
+            try { window.getSelection().removeAllRanges(); } catch (err) {}
+            // 같은 선택으로 중복 전송은 허용하되, 다음 드래그 전까지 텍스트 유지
         });
         
         window.addEventListener("message", (event) => {

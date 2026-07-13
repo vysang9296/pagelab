@@ -611,7 +611,7 @@ function showGroupContextMenu(e, groupId) {
             <div class="context-menu-item" onclick="duplicateGroup('${groupId}')">👯 폴더 복제 (Duplicate)</div>
             <div class="context-menu-item" onclick="exportGroupMerge()">🗂️ 통합 다운로드 (PDF)</div>
             <div class="context-menu-item" onclick="exportGroupSeparate()">📑 파일별 다운로드 (ZIP)</div>
-            <div class="context-menu-item" onclick="openGroupInNoteLab('${groupId}')">📝 Note Lab에서 편집하기</div>
+            <div class="context-menu-item" onclick="openGroupInNoteLab('${groupId}')">📝 Note Lab으로 보내기 (본문 작업)</div>
         `;
     } else {
         html = `
@@ -620,7 +620,7 @@ function showGroupContextMenu(e, groupId) {
             <div class="context-menu-item" onclick="duplicateSelectedGroups()">👯 폴더 일괄 복제 (Duplicate)</div>
             <div class="context-menu-item" onclick="exportMultiMerge()">🗂️ 다중 통합 다운로드 (통합PDF 모음 ZIP)</div>
             <div class="context-menu-item" onclick="exportMultiSeparate()">📑 다중 파일별 다운로드 (이중 ZIP)</div>
-            <div class="context-menu-item" onclick="openMultipleGroupsInNoteLab()">📝 Note Lab에서 편집하기</div>
+            <div class="context-menu-item" onclick="openMultipleGroupsInNoteLab()">📝 Note Lab으로 보내기 (본문 작업)</div>
         `;
     }
     showMenu(e, html);

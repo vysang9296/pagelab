@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Public Binder - Page Lab</title>
-    <link rel="stylesheet" href="style.css?v=20260629_v5">
+    <link rel="stylesheet" href="style.css?v=20260713_note_save_ui">
     <script src="Sortable.min.js"></script>
     <!-- Toast UI Editor CDN -->
     <link rel="stylesheet" href="https://uicdn.toast.com/editor/latest/toastui-editor.min.css" />
@@ -38,9 +38,13 @@
         <div class="nav-left" style="display:flex; align-items:center; gap:24px;">
             <h1>Public Binder</h1>
             <div class="tabs-container" style="display:flex; gap:8px;">
-                <button class="tab-btn nav-tab active" data-tab="pagelab" onclick="switchTab('pagelab')">Page Lab</button>
-                <button class="tab-btn nav-tab" data-tab="folderlab" onclick="switchTab('folderlab')">Folder Lab</button>
-                <button class="tab-btn nav-tab" data-tab="notelab" onclick="switchTab('notelab')">Note Lab</button>
+                <button class="tab-btn nav-tab active" data-tab="pagelab" onclick="switchTab('pagelab')" title="페이지를 조립해 제출용 PDF/ZIP을 만듭니다">Page Lab</button>
+                <button class="tab-btn nav-tab" data-tab="folderlab" onclick="switchTab('folderlab')" title="파일을 찾고 모으고 정리합니다">Folder Lab</button>
+                <button class="tab-btn nav-tab" data-tab="notelab" onclick="switchTab('notelab')" title="원본을 보며 본문을 마크다운으로 작업합니다">Note Lab</button>
+            </div>
+            <div id="lab-role-hint" class="lab-role-hint" title="클릭하면 업무 흐름 안내">
+                <span class="lab-role-hint-text">📁 찾기(Folder) → 📄 조립(Page) → 📝 내용 작업(Note)</span>
+                <button type="button" class="lab-role-hint-btn" id="lab-workflow-help-btn">업무 흐름</button>
             </div>
         </div>
         <div class="nav-right" style="display:flex; gap:12px;">
@@ -157,8 +161,8 @@
                 <div class="panel-header" style="display:flex; flex-direction:column; gap:8px;">
                     <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
                         <div class="fl-mode-tabs" style="display:flex; gap:4px; background:var(--bg-panel); padding:2px; border-radius:6px; border:1px solid var(--border-color);">
-                            <button id="fl-tab-staging" class="fl-mode-btn active" onclick="flSwitchRightMode('staging')" style="padding:4px 12px; border:none; background:#fff; border-radius:4px; font-size:12px; font-weight:600; color:var(--primary-blue); box-shadow:var(--shadow-sm); cursor:pointer;">가상 스테이징 작업</button>
-                            <button id="fl-tab-real" class="fl-mode-btn" onclick="flSwitchRightMode('real')" style="padding:4px 12px; border:none; background:transparent; border-radius:4px; font-size:12px; font-weight:600; color:var(--text-secondary); cursor:pointer;">실시간 로컬 작업</button>
+                            <button id="fl-tab-staging" class="fl-mode-btn active" onclick="flSwitchRightMode('staging')" style="padding:4px 12px; border:none; background:#fff; border-radius:4px; font-size:12px; font-weight:600; color:var(--primary-blue); box-shadow:var(--shadow-sm); cursor:pointer;" title="원본 디스크를 건드리지 않고 가상으로 정리">가상 스테이징 (안전)</button>
+                            <button id="fl-tab-real" class="fl-mode-btn" onclick="flSwitchRightMode('real')" style="padding:4px 12px; border:none; background:transparent; border-radius:4px; font-size:12px; font-weight:600; color:var(--text-secondary); cursor:pointer;" title="실제 폴더에 즉시 반영 — 삭제/이동 주의">실시간 로컬 (주의)</button>
                         </div>
                         
                         <!-- Staging Actions -->
@@ -191,11 +195,16 @@
                     </div>
                 </div>
 
+                <!-- Real mode danger banner (shown only in real mode) -->
+                <div id="fl-real-mode-banner" class="fl-real-mode-banner" style="display:none;" role="alert">
+                    ⚠️ <strong>실시간 로컬 모드</strong> — 복사·이동·삭제가 <u>실제 디스크에 즉시 반영</u>됩니다.
+                    원본을 안전하게 모으려면 <strong>가상 스테이징</strong>을 사용하세요.
+                </div>
                 <!-- Real Tree Container -->
                 <div class="fl-real-tree" id="fl-real-tree" style="flex-grow: 1; overflow-y: auto; padding: 8px 12px; display:none; background:#fafbfc;">
                     <div class="empty-state" style="position:static; transform:none; margin-top:40px;">
                         <h2>실시간 로컬 폴더 작업</h2>
-                        <p>상단의 <b>[타겟 폴더 열기]</b>를 클릭하여 실제 작업할 디렉토리를 연결하세요.<br>이후부터 좌측 패널과의 드래그 앤 드롭 복사/이동이 커밋 대기 없이 **즉각적으로** 실제 반영됩니다.</p>
+                        <p>상단의 <b>[타겟 폴더 열기]</b>를 클릭하여 실제 작업할 디렉토리를 연결하세요.<br>이후부터 좌측 패널과의 드래그 앤 드롭 복사/이동이 커밋 대기 없이 <b>즉각적으로</b> 실제 반영됩니다.</p>
                     </div>
                 </div>
             </div>
@@ -250,9 +259,13 @@
                 </div>
                 <!-- Extended Snippet Preview -->
                 <div style="width:50%; padding:16px; overflow-y:auto; background:#f8f9fa; display:flex; flex-direction:column;">
-                    <div id="fl-preview-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:2px solid var(--border-color); padding-bottom:8px;">
+                    <div id="fl-preview-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:2px solid var(--border-color); padding-bottom:8px; gap:8px; flex-wrap:wrap;">
                         <h4 id="fl-preview-doc-title" style="margin:0; font-size:14px; color:var(--primary-blue); display:flex; align-items:center; gap:6px;">📄 문서를 선택하세요</h4>
-                        <span style="font-size:11px; color:var(--text-secondary); background:#e8f0fe; padding:2px 6px; border-radius:4px;">미리보기 (Snippet)</span>
+                        <div style="display:flex; gap:6px; align-items:center;">
+                            <button type="button" id="fl-preview-open-notelab" class="secondary-btn" style="padding:2px 8px; font-size:11px; display:none;" title="이 문서를 Note Lab에서 열기">📝 Note Lab</button>
+                            <button type="button" id="fl-preview-open-pagelab" class="secondary-btn" style="padding:2px 8px; font-size:11px; display:none;" title="이 문서를 Page Lab으로 보내기">📄 Page Lab</button>
+                            <span style="font-size:11px; color:var(--text-secondary); background:#e8f0fe; padding:2px 6px; border-radius:4px;">미리보기</span>
+                        </div>
                     </div>
                     <div id="fl-preview-content" style="font-size:13px; color:var(--text-primary); line-height:1.6; flex-grow:1; white-space:pre-wrap;">
                         좌측 검색 결과에서 문서를 클릭하면, 키워드가 포함된 앞뒤 본문 문맥(최대 200단어)이 이곳에 넓게 펼쳐집니다.
@@ -264,34 +277,81 @@
 
     <!-- Note Lab Workspace -->
     <div id="notelab-workspace" class="workspace" style="display: none; flex-direction: column;">
+      <!-- 환경 의존성 상태 (kordoc / OCR) — JS가 채움 -->
+      <div id="notelab-preflight-bar" class="notelab-preflight-bar" aria-live="polite">
+        <span class="notelab-preflight-label">환경 점검</span>
+        <span id="notelab-chip-kordoc" class="notelab-status-chip pending" title="한글 본문 가져오기·한글로 반영 저장">한글엔진(kordoc): 확인 중…</span>
+        <span id="notelab-chip-ocr" class="notelab-status-chip pending" title="영역 크롭 후 글자 인식">한국어 OCR: 확인 중…</span>
+        <button type="button" id="notelab-preflight-help-btn" class="btn notelab-preflight-help-btn" style="display:none;">해결 방법</button>
+      </div>
+      <!-- 첫 사용 3단계 가이드 (닫기 가능, localStorage) -->
+      <div id="notelab-onboarding" class="notelab-onboarding" style="display:none;">
+        <div class="notelab-onboarding-inner">
+          <strong>Note Lab 사용 순서</strong>
+          <ol>
+            <li><b>문서 열기</b> 또는 <b>MD 불러오기</b></li>
+            <li><b>본문 가져오기</b> — 한글·PDF를 마크다운으로 (또는 불러온 MD 편집)</li>
+            <li>편집 후 <b>노트 저장</b>(파일명 지정) 또는 <b>한글로 반영 저장</b></li>
+          </ol>
+          <span class="notelab-onboarding-hint">원본 파일은 직접 덮어쓰지 않습니다. 반영 저장 시 새 파일 + 원본.bak 백업이 생깁니다.</span>
+        </div>
+        <button type="button" id="notelab-onboarding-dismiss" class="btn">닫기</button>
+      </div>
       <div class="notelab-workspace">
         <!-- 좌측 문서 뷰어 영역 -->
         <div class="notelab-pane notelab-viewer-pane" id="notelab-viewer">
           <div class="notelab-viewer-header">
-            <button id="notelab-open-doc-btn" class="btn btn-primary">문서 열기</button>
-            <button id="notelab-toggle-crop-btn" class="btn">✂️ 영역 크롭</button>
+            <button id="notelab-open-doc-btn" class="btn btn-primary" title="PDF / 한글 / 이미지 열기">📂 문서 열기</button>
+            <button id="notelab-toggle-crop-btn" class="btn" title="PDF 영역 선택 후 이미지 삽입 또는 OCR">✂️ 영역 크롭</button>
             <span class="notelab-file-title" style="margin-left: 8px; font-weight: bold;">선택된 문서 없음</span>
             <button id="notelab-close-doc-btn" class="btn" style="margin-left: auto;">닫기</button>
           </div>
           <div class="notelab-viewer-body" id="notelab-pdf-container">
-            <!-- PDF.js Canvas 렌더링 영역 (Iframe 적용 예정) -->
             <iframe id="notelab-pdf-iframe" style="width:100%; height:100%; border:none;"></iframe>
           </div>
         </div>
-        <!-- 구분 슬라이더 바 -->
         <div class="notelab-resizer" id="notelab-resizer"></div>
         <!-- 우측 마크다운 에디터 영역 -->
         <div class="notelab-pane notelab-editor-pane notelab-editor-only" id="notelab-editor">
           <div class="notelab-editor-header">
-            <button id="notelab-save-btn" class="btn btn-primary">💾 저장</button>
-            <button id="notelab-patch-btn" class="btn">📝 HWPX 패치</button>
-            <button id="notelab-compare-btn" class="btn">🔍 비교</button>
-            <button id="notelab-parse-all-btn" class="btn">📥 텍스트 추출</button>
-            <button id="notelab-toggle-preview-btn" class="btn">👁️ 미리보기</button>
-            <button id="notelab-ai-btn" class="btn">🤖 AI 분석</button>
+            <div class="notelab-toolbar-row">
+              <button id="notelab-parse-all-btn" class="btn btn-primary" title="원본 문서 본문을 마크다운으로 가져옵니다">📥 본문 가져오기</button>
+              <button id="notelab-toggle-preview-btn" class="btn" title="마크다운 미리보기 패널">👁️ 미리보기</button>
+              <button id="notelab-open-md-btn" class="btn" title="기존 .md 노트 불러오기">📂 MD 불러오기</button>
+              <button id="notelab-save-btn" class="btn btn-primary" title="마크다운(.md) 파일로 저장 — 파일명 지정 가능">💾 노트 저장</button>
+            </div>
+            <div class="notelab-toolbar-row notelab-toolbar-row-secondary">
+              <button id="notelab-patch-btn" class="btn" title="편집한 마크다운을 원본 한글 서식에 반영해 새 파일로 저장">📝 한글로 반영 저장</button>
+              <button id="notelab-compare-btn" class="btn" title="두 문서 신구 대조">🔍 비교</button>
+              <button id="notelab-ai-btn" class="btn" title="문단·개조식 줄바꿈 정리 / 키워드·요약 (로컬)">🧩 문단 정리·분석</button>
+            </div>
           </div>
           <div id="notelab-markdown-editor" style="flex: 1; min-height: 0;"></div>
         </div>
+      </div>
+    </div>
+
+    <!-- 업무 흐름 안내 모달 -->
+    <div id="lab-workflow-modal" class="lab-workflow-modal" style="display:none;" role="dialog" aria-modal="true">
+      <div class="lab-workflow-modal-card">
+        <h3>Public Binder 업무 흐름</h3>
+        <p class="lab-workflow-lead">세 Lab은 목적별로 나뉩니다. 망분리·로컬 PC에서만 동작합니다.</p>
+        <div class="lab-workflow-grid">
+          <div class="lab-workflow-card">
+            <h4>🗂️ Folder Lab — 찾기·모으기</h4>
+            <p>공유폴더·내 문서에서 본문 검색, 가상 스테이징으로 안전하게 묶기. 우클릭 → Page/Note로 넘기기.</p>
+          </div>
+          <div class="lab-workflow-card">
+            <h4>📄 Page Lab — 페이지 조립</h4>
+            <p>회전·제외·순서 변경 후 제출용 PDF/ZIP. 분류 폴더 우클릭 → Note Lab에서 내용 작업.</p>
+          </div>
+          <div class="lab-workflow-card">
+            <h4>📝 Note Lab — 내용 작업</h4>
+            <p>① 문서 열기 → ② 본문 가져오기 → ③ 편집 → ④ 한글로 반영 저장 또는 노트 저장.</p>
+          </div>
+        </div>
+        <p class="lab-workflow-tip"><strong>예시:</strong> Folder에서 공문 검색 → Note에서 수정안 작성 → 한글로 반영 저장 → Page에서 첨부 PDF 조립.</p>
+        <button type="button" class="primary-btn" id="lab-workflow-modal-close">확인</button>
       </div>
     </div>
 
@@ -305,14 +365,14 @@
         <div id="fl-ctx-export-zip" class="fl-context-menu-item" onclick="flExecuteContextMenu('export_zip')">📦 이 폴더 ZIP으로 내보내기</div>
         <div id="fl-ctx-export-sync" class="fl-context-menu-item" onclick="flExecuteContextMenu('export_sync')">🔄 이 폴더 로컬 동기화 (Commit)</div>
         <div id="fl-ctx-delete" class="fl-context-menu-item" onclick="flExecuteContextMenu('delete')">✖ 삭제</div>
-        <div id="fl-ctx-open-pagelab" class="fl-context-menu-item" onclick="flExecuteContextMenu('open_pagelab')">📄 Page Lab에서 편집하기</div>
-        <div id="fl-ctx-open-notelab" class="fl-context-menu-item" onclick="flExecuteContextMenu('open_notelab')">📝 Note Lab에서 편집하기</div>
+        <div id="fl-ctx-open-pagelab" class="fl-context-menu-item" onclick="flExecuteContextMenu('open_pagelab')">📄 Page Lab으로 보내기 (페이지 조립)</div>
+        <div id="fl-ctx-open-notelab" class="fl-context-menu-item" onclick="flExecuteContextMenu('open_notelab')">📝 Note Lab으로 보내기 (본문 작업)</div>
     </div>
 
-    <script src="app.js?v=20260629_v5"></script>
-    <script src="tab_manager.js?v=20260629_v5"></script>
-    <script src="folderlab.js?v=20260629_v5"></script>
-    <script src="notelab.js?v=20260629_v5"></script>
+    <script src="app.js?v=20260713_note_save_ui"></script>
+    <script src="tab_manager.js?v=20260713_note_save_ui"></script>
+    <script src="folderlab.js?v=20260713_note_save_ui"></script>
+    <script src="notelab.js?v=20260713_note_save_ui"></script>
 </body>
 </html>
 

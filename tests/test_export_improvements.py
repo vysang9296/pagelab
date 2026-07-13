@@ -10,7 +10,9 @@ class TestExportImprovements(unittest.TestCase):
     def test_rotation_validation(self, mock_merge_export):
         mock_merge_export.return_value = 'dummy_path.pdf'
         api = Api()
+        import tempfile
         api._fm = MagicMock()
+        api._fm.get_temp_path.side_effect = lambda filename: os.path.join(tempfile.gettempdir(), filename)
         
         payload = [
             {
@@ -56,7 +58,9 @@ class TestExportImprovements(unittest.TestCase):
 
     def test_rotation_validation_edge_cases(self):
         api = Api()
+        import tempfile
         api._fm = MagicMock()
+        api._fm.get_temp_path.side_effect = lambda filename: os.path.join(tempfile.gettempdir(), filename)
         
         # 다양한 비정상 회전값 검사 (360 -> 0, -90 -> 0, 9999 -> 0, 정상 90 -> 90)
         payload = {
@@ -84,7 +88,9 @@ class TestExportImprovements(unittest.TestCase):
     def test_export_data_nested_zip_structure(self, mock_merge_export):
         mock_merge_export.return_value = 'dummy.pdf'
         api = Api()
+        import tempfile
         api._fm = MagicMock()
+        api._fm.get_temp_path.side_effect = lambda filename: os.path.join(tempfile.gettempdir(), filename)
 
         # 복잡한 다중 이중 ZIP 압축 Payload 가공 검증
         payload = [

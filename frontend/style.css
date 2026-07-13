@@ -271,11 +271,178 @@ mark { background-color: #fce8e6; color: var(--danger-red); padding: 0 2px; bord
 .fl-index-status.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; display: flex; }
 .fl-index-status.error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; display: flex; }
 
+/* Top nav: Lab role hint */
+.lab-role-hint {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    background: #f1f3f4;
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 2px 6px 2px 10px;
+    max-width: 420px;
+}
+.lab-role-hint-text {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.lab-role-hint-btn {
+    flex-shrink: 0;
+    border: none;
+    background: #fff;
+    border-radius: 12px;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--primary-blue);
+    cursor: pointer;
+    border: 1px solid var(--border-color);
+}
+.lab-role-hint-btn:hover { background: #e8f0fe; }
+
+/* Workflow help modal */
+.lab-workflow-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+}
+.lab-workflow-modal-card {
+    background: #fff;
+    border-radius: 12px;
+    max-width: 640px;
+    width: 100%;
+    padding: 24px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.18);
+}
+.lab-workflow-modal-card h3 { margin: 0 0 8px; font-size: 18px; color: #1a73e8; }
+.lab-workflow-lead { font-size: 13px; color: #5f6368; margin: 0 0 16px; line-height: 1.5; }
+.lab-workflow-grid { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+.lab-workflow-card {
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 12px 14px;
+    background: #fafbfc;
+}
+.lab-workflow-card h4 { margin: 0 0 6px; font-size: 13px; color: #202124; }
+.lab-workflow-card p { margin: 0; font-size: 12px; color: #5f6368; line-height: 1.5; }
+.lab-workflow-tip {
+    font-size: 12px;
+    background: #e8f0fe;
+    color: #174ea6;
+    padding: 10px 12px;
+    border-radius: 6px;
+    margin: 0 0 16px;
+    line-height: 1.5;
+}
+
+/* Folder Lab real mode warning */
+.fl-real-mode-banner {
+    flex-shrink: 0;
+    background: #fce8e6;
+    color: #c5221f;
+    border-bottom: 2px solid #d93025;
+    padding: 8px 12px;
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+/* Note Lab preflight / onboarding */
+#notelab-workspace {
+    display: none;
+    flex-direction: column;
+}
+.notelab-preflight-bar {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 6px 12px;
+    background: #f8f9fa;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 11px;
+}
+.notelab-preflight-label {
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+.notelab-status-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 12px;
+    border: 1px solid transparent;
+    font-size: 11px;
+    font-weight: 500;
+}
+.notelab-status-chip.ok {
+    background: #e6f4ea;
+    color: #137333;
+    border-color: #ceead6;
+}
+.notelab-status-chip.warn {
+    background: #fef7e0;
+    color: #b06000;
+    border-color: #fde293;
+}
+.notelab-status-chip.bad {
+    background: #fce8e6;
+    color: #c5221f;
+    border-color: #f5c6cb;
+}
+.notelab-status-chip.pending {
+    background: #f1f3f4;
+    color: #5f6368;
+    border-color: #dadce0;
+}
+.notelab-preflight-help-btn {
+    padding: 2px 8px !important;
+    font-size: 11px !important;
+    margin-left: auto;
+}
+.notelab-onboarding {
+    flex-shrink: 0;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 14px;
+    background: #e8f0fe;
+    border-bottom: 1px solid #d2e3fc;
+    font-size: 12px;
+    color: #174ea6;
+    line-height: 1.45;
+}
+.notelab-onboarding-inner ol {
+    margin: 6px 0 0;
+    padding-left: 18px;
+}
+.notelab-onboarding-inner li { margin: 2px 0; }
+.notelab-onboarding-hint {
+    display: block;
+    margin-top: 6px;
+    font-size: 11px;
+    color: #1967d2;
+}
+#notelab-system-banner {
+    flex-shrink: 0;
+}
+
 /* Note Lab Workspace & Pane Layout */
 .notelab-workspace {
     display: flex;
     width: 100%;
-    height: calc(100vh - 50px);
+    flex: 1;
+    min-height: 0;
     overflow: hidden;
 }
 .notelab-pane {
@@ -304,7 +471,7 @@ mark { background-color: #fce8e6; color: var(--danger-red); padding: 0 2px; bord
 .notelab-resizer:hover {
     background: #0078d4;
 }
-.notelab-viewer-header, .notelab-editor-header {
+.notelab-viewer-header {
     height: 40px;
     flex-shrink: 0;
     display: flex;
@@ -315,23 +482,47 @@ mark { background-color: #fce8e6; color: var(--danger-red); padding: 0 2px; bord
     border-bottom: 1px solid #ccc;
     overflow-x: auto;
     white-space: nowrap;
-    -ms-overflow-style: none;  /* IE and Edge */
-    scrollbar-width: none;  /* Firefox */
-}
-.notelab-viewer-header::-webkit-scrollbar, .notelab-editor-header::-webkit-scrollbar {
-    display: none; /* Hide scrollbar for Chrome, Safari and Opera */
-}
-.notelab-viewer-header {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
     justify-content: flex-start;
 }
+.notelab-viewer-header::-webkit-scrollbar {
+    display: none;
+}
+/* 에디터 툴바: 2줄 + wrap — 창 모드에서 버튼 잘림 방지 */
 .notelab-editor-header {
-    justify-content: flex-start;
-}
-.notelab-viewer-header .btn, .notelab-editor-header .btn {
+    height: auto;
+    min-height: 40px;
     flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+    padding: 6px 8px;
+    background: #eaeaea;
+    border-bottom: 1px solid #ccc;
+    overflow: visible;
+    white-space: normal;
+}
+.notelab-toolbar-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    min-width: 0;
+}
+.notelab-toolbar-row-secondary {
+    padding-top: 2px;
+    border-top: 1px dashed #d0d0d0;
+}
+.notelab-viewer-header .btn,
+.notelab-editor-header .btn {
+    flex: 0 1 auto;
     padding: 4px 8px;
     font-size: 11px;
     white-space: nowrap;
+    max-width: 100%;
 }
 .notelab-viewer-body {
     flex: 1;
@@ -415,30 +606,7 @@ mark { background-color: #fce8e6; color: var(--danger-red); padding: 0 2px; bord
     display: block;
 }
 
-/* Note Lab Editor single panel preview toggle styles */
-/* Editor Only State */
-#notelab-editor.notelab-editor-only .toastui-editor-md-editor {
-    width: 100% !important;
-    display: block !important;
-    flex: 1 1 100% !important;
-}
-#notelab-editor.notelab-editor-only .toastui-editor-md-preview {
-    display: none !important;
-}
-#notelab-editor.notelab-editor-only .toastui-editor-md-splitter {
-    display: none !important;
-}
-
-/* Split View State */
-#notelab-editor.notelab-split-view .toastui-editor-md-editor {
-    /* default flex/widths managed by JS */
-}
-#notelab-editor.notelab-split-view .toastui-editor-md-preview {
-    display: block !important;
-}
-#notelab-editor.notelab-split-view .toastui-editor-md-splitter {
-    display: block !important;
-}
+/* Note Lab Editor single panel preview toggle styles - Removed custom overrides to use native changePreviewStyle */
 
 /* Floating mini context menu styling */
 .fl-mini-menu {
@@ -481,6 +649,46 @@ mark { background-color: #fce8e6; color: var(--danger-red); padding: 0 2px; bord
 .toastui-editor-defaultUI .toastui-editor-md-container {
     display: flex !important;
     flex-direction: row !important;
+    align-items: stretch !important;
+    overflow: hidden !important;
+}
+
+/* Markdown | 미리보기 사이 드래그 조절 바
+   Toast UI 기본 스플리터는 position:absolute + width:1px 장식선이라 드래그 불가.
+   flex 핸들로 덮어써 크기 조절 가능하게 함. */
+.toastui-editor-defaultUI .toastui-editor-md-container .toastui-editor-md-splitter,
+.toastui-editor-main .toastui-editor-md-splitter {
+    display: block !important;
+    flex: 0 0 8px !important;
+    width: 8px !important;
+    min-width: 8px !important;
+    max-width: 8px !important;
+    height: auto !important;
+    align-self: stretch !important;
+    cursor: col-resize !important;
+    background: #e8eaed !important;
+    border-left: 1px solid #dadce0 !important;
+    border-right: 1px solid #dadce0 !important;
+    z-index: 100 !important;
+    position: relative !important;
+    left: auto !important;
+    top: auto !important;
+    box-sizing: border-box !important;
+    transition: background 0.15s, border-color 0.15s !important;
+}
+.toastui-editor-defaultUI .toastui-editor-md-container .toastui-editor-md-splitter:hover,
+.toastui-editor-main .toastui-editor-md-splitter:hover {
+    background: #1a73e8 !important;
+    border-left-color: #1557b0 !important;
+    border-right-color: #1557b0 !important;
+}
+
+/* 스플리터 너비 계산이 깨지지 않도록 패널 min-width 완화 */
+.toastui-editor-defaultUI .toastui-editor-md-container > .toastui-editor,
+.toastui-editor-defaultUI .toastui-editor-md-container .toastui-editor-md-preview {
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    overflow: auto !important;
 }
 
 /* tab 모드 전환 시 생겨나는 TUI Editor 상단 탭 단추를 강제로 숨김 */

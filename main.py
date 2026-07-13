@@ -135,50 +135,6 @@ class Api:
             self.log(f"Scan error: {e}")
             return { "root_path": root_path, "status": "error" }
 
-    def get_full_tree_recursive(self, target_path):
-        """Recursively scans a directory and returns flat groups of files."""
-        if not os.path.exists(target_path) or not os.path.isdir(target_path):
-            return {"status": "error", "groups": []}
-            
-        groups = []
-        base_name = os.path.basename(target_path)
-        
-        group_count = 0
-        file_count = 0
-        MAX_GROUPS = 500
-        MAX_FILES = 5000
-        truncated = False
-        
-        for root, dirs, files in os.walk(target_path):
-            if any(d.startswith('.') for d in root.split(os.sep)): continue
-            if group_count >= MAX_GROUPS or file_count >= MAX_FILES:
-                truncated = True
-                break
-            
-            rel_path = os.path.relpath(root, target_path)
-            group_name = base_name if rel_path == '.' else f"{base_name}/{rel_path.replace(os.sep, '/')}"
-            
-            group_files = []
-            for file in files:
-                if file.startswith('.'): continue
-                if file_count >= MAX_FILES:
-                    truncated = True
-                    break
-                group_files.append({
-                    "name": file,
-                    "path": os.path.join(root, file)
-                })
-                file_count += 1
-                
-            if group_files or rel_path == '.':
-                groups.append({
-                    "name": group_name,
-                    "files": group_files
-                })
-                group_count += 1
-                
-        return {"status": "success", "groups": groups, "truncated": truncated}
-
     def get_local_tree_recursive(self, target_path):
         """Recursively scans target_path and returns a nested tree structure for virtual staging."""
         if not os.path.exists(target_path):
@@ -364,27 +320,6 @@ class Api:
             return False
 
 
-    def fl_real_copy(self, src_path, dest_dir):
-        """Copies an actual file from src_path to dest_dir."""
-        try:
-            if not os.path.exists(src_path) or not os.path.exists(dest_dir):
-                return False
-            dest_path = os.path.join(dest_dir, os.path.basename(src_path))
-            
-            base, ext = os.path.splitext(dest_path)
-            counter = 1
-            while os.path.exists(dest_path):
-                dest_path = f"{base}({counter}){ext}"
-                counter += 1
-
-            shutil.copy2(src_path, dest_path)
-            self.log(f"Copied real file: {src_path} -> {dest_path}")
-            return True
-        except Exception as e:
-            self.log(f"Real copy error: {e}")
-            self.js_alert(f"파일 복사 실패:\n{str(e)}")
-            return False
-
     def fl_transfer_items(self, items, dest_dir, mode='copy'):
         """
         Transfers multiple selected items (list of dicts with 'path', 'isDir') to dest_dir.
@@ -502,36 +437,6 @@ class Api:
         except Exception as e:
             self.log(f"Real delete error: {e}")
             self.js_alert(f"삭제 실패:\n{str(e)}")
-            return False
-
-    def fl_copy_items_real(self, src_paths, dest_dir):
-        """Copies multiple items to a target directory immediately."""
-        import shutil
-        if not os.path.exists(dest_dir): return False
-        
-        success_count = 0
-        try:
-            for src in src_paths:
-                if not os.path.exists(src): continue
-                dest_path = os.path.join(dest_dir, os.path.basename(src))
-                
-                if os.path.exists(dest_path):
-                    base, ext = os.path.splitext(dest_path)
-                    counter = 1
-                    while os.path.exists(dest_path):
-                        dest_path = f"{base}({counter}){ext}"
-                        counter += 1
-
-                if os.path.isdir(src):
-                    shutil.copytree(src, dest_path, dirs_exist_ok=True, symlinks=True)
-                else:
-                    shutil.copy2(src, dest_path)
-                success_count += 1
-                self.log(f"[RealCopy] Copied {src} to {dest_path}")
-            return True
-        except Exception as e:
-            self.log(f"[RealCopy] Error: {e}")
-            self.js_alert(f"복사 중 오류 발생:\n{str(e)}")
             return False
 
     def fl_real_delete_multi(self, target_paths):
@@ -826,16 +731,170 @@ class Api:
             return {"success": False, "error": str(e)}
 
     def notelab_patch_document(self, original_path, edited_markdown, output_path):
-        """마크다운 편집본을 원본 문서 서식에 역패치하여 저장합니다."""
+        """마크다운 편집본을 원본 HWP/HWPX 서식에 역패치하여 저장합니다."""
         self.log(f"Kordoc patch requested from {original_path} to {output_path}")
         from backend.kordoc_adapter import KordocParserAdapter
         try:
+            if not original_path or not os.path.exists(original_path):
+                return {"success": False, "error": "원본 HWP/HWPX 경로가 없거나 파일이 존재하지 않습니다."}
+            if not output_path:
+                return {"success": False, "error": "저장 경로가 지정되지 않았습니다."}
+            if edited_markdown is None:
+                edited_markdown = ""
+
+            # Prevent path traversal on output basename
+            out_dir = os.path.dirname(os.path.abspath(output_path))
+            out_base = safe_filename(os.path.basename(output_path), "patched.hwpx")
+            safe_output = os.path.join(out_dir, out_base)
+
             adapter = KordocParserAdapter()
-            success = adapter.patch_document(original_path, edited_markdown, output_path)
-            return {"success": success}
+            result = adapter.patch_document(original_path, edited_markdown, safe_output)
+            if result.get("success"):
+                self.log(f"Kordoc patch OK -> {result.get('output_path')} (bak: {result.get('backup_path')})")
+            else:
+                self.log(f"Kordoc patch failed: {result.get('error')}")
+            return result
         except Exception as e:
             self.log(f"Kordoc patch error: {e}")
             return {"success": False, "error": str(e)}
+
+    def notelab_choose_source_file(self):
+        """Note Lab 문서 열기: PDF / HWP / HWPX / 이미지 선택."""
+        if not self._window:
+            return None
+        file_types = (
+            "문서 파일 (*.pdf;*.hwp;*.hwpx;*.png;*.jpg;*.jpeg)",
+            "한글 문서 (*.hwp;*.hwpx)",
+            "PDF (*.pdf)",
+            "All files (*.*)",
+        )
+        result = self._window.create_file_dialog(
+            webview.OPEN_DIALOG, allow_multiple=False, file_types=file_types
+        )
+        return self._parse_dialog_result(result)
+
+    def notelab_choose_hwp_file(self):
+        """Note Lab 비교/패치용: HWP·HWPX만 선택."""
+        if not self._window:
+            return None
+        file_types = (
+            "한글 문서 (*.hwp;*.hwpx)",
+            "All files (*.*)",
+        )
+        result = self._window.create_file_dialog(
+            webview.OPEN_DIALOG, allow_multiple=False, file_types=file_types
+        )
+        return self._parse_dialog_result(result)
+
+    def notelab_choose_patch_save_path(self, default_filename: str):
+        """HWPX 패치 결과 저장 경로 (파일 저장 대화상자)."""
+        if not self._window:
+            return None
+        if not default_filename:
+            default_filename = "patched.hwpx"
+        # Normalize default to HWP family
+        base, ext = os.path.splitext(default_filename)
+        if ext.lower() not in (".hwp", ".hwpx"):
+            default_filename = base + ".hwpx"
+        file_types = (
+            "한글 문서 (*.hwpx;*.hwp)",
+            "HWPX (*.hwpx)",
+            "HWP (*.hwp)",
+            "All files (*.*)",
+        )
+        result = self._window.create_file_dialog(
+            webview.SAVE_DIALOG,
+            save_filename=default_filename,
+            file_types=file_types,
+        )
+        return self._parse_dialog_result(result)
+
+    def notelab_choose_markdown_save_path(self, default_filename: str = "note.md"):
+        """노트 저장: Page/Folder Lab과 동일한 SAVE 대화상자 (파일명 지정 가능)."""
+        if not self._window:
+            return None
+        if not default_filename:
+            default_filename = "note.md"
+        base, ext = os.path.splitext(default_filename)
+        if ext.lower() not in (".md", ".markdown", ".txt"):
+            default_filename = base + ".md"
+        # 파일명 안전화 (경로 조작 방지 — 확장자는 유지)
+        safe_base = safe_filename(os.path.basename(default_filename), "note.md")
+        if not os.path.splitext(safe_base)[1]:
+            safe_base = safe_base + ".md"
+        file_types = (
+            "Markdown (*.md)",
+            "Text (*.txt)",
+            "All files (*.*)",
+        )
+        result = self._window.create_file_dialog(
+            webview.SAVE_DIALOG,
+            save_filename=safe_base,
+            file_types=file_types,
+        )
+        path = self._parse_dialog_result(result)
+        if not path:
+            return None
+        # 사용자가 확장자를 빼면 .md 부여
+        _, out_ext = os.path.splitext(path)
+        if not out_ext:
+            path = path + ".md"
+        return path
+
+    def notelab_choose_markdown_open(self):
+        """기존 마크다운 노트 불러오기."""
+        if not self._window:
+            return None
+        file_types = (
+            "Markdown (*.md;*.markdown;*.txt)",
+            "Markdown (*.md)",
+            "All files (*.*)",
+        )
+        result = self._window.create_file_dialog(
+            webview.OPEN_DIALOG, allow_multiple=False, file_types=file_types
+        )
+        return self._parse_dialog_result(result)
+
+    def notelab_load_markdown(self, file_path):
+        """로컬 마크다운 파일을 읽어 에디터용 본문을 반환합니다."""
+        self.log(f"Loading markdown note: {file_path}")
+        try:
+            if not file_path or not os.path.exists(file_path):
+                return {"success": False, "error": "파일이 존재하지 않습니다.", "content": ""}
+            ext = os.path.splitext(file_path)[1].lower()
+            if ext not in (".md", ".markdown", ".txt", ""):
+                return {
+                    "success": False,
+                    "error": "마크다운/텍스트 파일(.md, .txt)만 불러올 수 있습니다.",
+                    "content": "",
+                }
+            # 과도한 파일 방지 (20MB)
+            size = os.path.getsize(file_path)
+            if size > 20 * 1024 * 1024:
+                return {"success": False, "error": "파일이 너무 큽니다 (20MB 초과).", "content": ""}
+            with open(file_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            return {
+                "success": True,
+                "content": content,
+                "path": os.path.abspath(file_path),
+                "filename": os.path.basename(file_path),
+            }
+        except UnicodeDecodeError:
+            try:
+                with open(file_path, "r", encoding="cp949") as f:
+                    content = f.read()
+                return {
+                    "success": True,
+                    "content": content,
+                    "path": os.path.abspath(file_path),
+                    "filename": os.path.basename(file_path),
+                }
+            except Exception as e:
+                return {"success": False, "error": f"인코딩 오류: {e}", "content": ""}
+        except Exception as e:
+            self.log(f"Load markdown error: {e}")
+            return {"success": False, "error": str(e), "content": ""}
 
     def notelab_compare_documents(self, path_old, path_new):
         """두 문서의 신구대조표 마크다운을 반환합니다."""
@@ -855,11 +914,20 @@ class Api:
         import re
         import shutil
         try:
+            if not save_path:
+                return {"success": False, "error": "저장 경로가 없습니다."}
+            # 경로 안전: 디렉터리는 유지, 파일명만 sanitize
+            target_dir = os.path.dirname(os.path.abspath(save_path))
+            raw_name = os.path.basename(save_path)
+            safe_name = safe_filename(raw_name, "note.md")
+            if not os.path.splitext(safe_name)[1]:
+                safe_name = safe_name + ".md"
+            save_path = os.path.join(target_dir, safe_name)
+
             # 1. Save the markdown content first
-            target_dir = os.path.dirname(save_path)
             os.makedirs(target_dir, exist_ok=True)
             with open(save_path, "w", encoding="utf-8") as f:
-                f.write(content)
+                f.write(content if content is not None else "")
                 
             # 2. Extract image relative paths (e.g. ![crop](attachments/notelab_crop_*.png))
             image_pattern = r'!\[.*?\]\((attachments[\\/][^)]+)\)'
@@ -878,16 +946,38 @@ class Api:
                     shutil.copy2(src_path, dest_path)
                     self.log(f"Copied attachment resource: {src_path} -> {dest_path}")
             
-            return {"success": True}
+            return {"success": True, "path": save_path}
         except Exception as e:
             self.log(f"Save markdown error: {e}")
             return {"success": False, "error": str(e)}
 
     def choose_file(self):
-        """파일 열기 대화상자를 노출하고 선택된 단일 파일 경로를 반환합니다."""
-        if not self._window: return None
-        result = self._window.create_file_dialog(webview.OPEN_DIALOG)
+        """파일 열기 대화상자를 노출하고 선택된 단일 파일 경로를 반환합니다.
+        Note Lab 호환: PDF/HWP/HWPX/이미지 필터 적용."""
+        if not self._window:
+            return None
+        file_types = (
+            "문서 파일 (*.pdf;*.hwp;*.hwpx;*.png;*.jpg;*.jpeg)",
+            "한글 문서 (*.hwp;*.hwpx)",
+            "PDF (*.pdf)",
+            "All files (*.*)",
+        )
+        result = self._window.create_file_dialog(
+            webview.OPEN_DIALOG, allow_multiple=False, file_types=file_types
+        )
         return self._parse_dialog_result(result)
+
+    def notelab_open_system_settings(self, uri: str) -> bool:
+        """Opens Windows system settings or URLs."""
+        if not uri or not uri.startswith("ms-settings:"):
+            return False
+        try:
+            self.log(f"Opening Windows settings URI: {uri}")
+            os.startfile(uri)
+            return True
+        except Exception as e:
+            self.log(f"Failed to open settings: {e}")
+            return False
 
     def notelab_crop_pdf_page(self, pdf_path, page_idx, x, y, w, h, vault_dir):
         """PDF 페이지 영역을 크롭하여 frontend/attachments 폴더에 이미지로 저장합니다."""
@@ -921,18 +1011,56 @@ class Api:
             self.log(f"OCR error: {e}")
             return {"success": False, "error_code": "unhandled-exception", "text": "", "error": str(e)}
 
-    def notelab_analyze_text(self, text):
-        """휴리스틱 AI 모듈을 구동하여 본문 핵심 단어를 검출합니다."""
-        self.log("AI Analyzer requested")
+    def notelab_analyze_text(self, text, pdf_path=None, mode="structure"):
+        """
+        로컬 분석:
+        - mode=structure (기본): 개조식·단락 줄바꿈/띄어쓰기 복원 (PDF 텍스트 힌트 선택)
+        - mode=keywords: 기존 키워드·요약
+        - mode=both: 구조 복원 + 키워드/요약
+        """
+        self.log(f"AI Analyzer requested (mode={mode})")
         from backend.ai_analyzer import DefaultLightAnalyzer
+        from backend.structure_refiner import StructureRefiner, extract_pdf_text_for_structure
         try:
-            analyzer = DefaultLightAnalyzer()
-            kws = analyzer.extract_keywords(text)
-            summary = analyzer.summarize(text)
-            return {"success": True, "keywords": kws, "summary": summary}
+            mode = (mode or "structure").lower()
+            result = {
+                "success": True,
+                "mode": mode,
+                "keywords": [],
+                "summary": "",
+                "structured_text": None,
+                "used_pdf_hint": False,
+                "error": None,
+            }
+
+            if mode in ("structure", "both", "format", "restructure"):
+                pdf_text = ""
+                if pdf_path:
+                    pdf_text = extract_pdf_text_for_structure(pdf_path)
+                    result["used_pdf_hint"] = bool(pdf_text and pdf_text.strip())
+                refiner = StructureRefiner()
+                result["structured_text"] = refiner.format(text or "", pdf_text=pdf_text or None)
+
+            if mode in ("keywords", "both", "summary"):
+                analyzer = DefaultLightAnalyzer()
+                result["keywords"] = analyzer.extract_keywords(text or "")
+                result["summary"] = analyzer.summarize(text or "")
+
+            # 기본 호환: structure only 여도 keywords 비어 있음 유지
+            if mode in ("structure", "format", "restructure") and result["structured_text"] is None:
+                result["structured_text"] = text or ""
+
+            return result
         except Exception as e:
             self.log(f"AI Analyzer error: {e}")
-            return {"success": False, "keywords": [], "summary": "", "error": str(e)}
+            return {
+                "success": False,
+                "keywords": [],
+                "summary": "",
+                "structured_text": None,
+                "used_pdf_hint": False,
+                "error": str(e),
+            }
 
     def choose_save_path(self, default_filename: str):
         """Ask user where to save, with default filename."""
@@ -941,6 +1069,10 @@ class Api:
         ext = os.path.splitext(default_filename)[1].lower()
         if ext == '.zip':
             file_types = ('ZIP Archive (*.zip)', 'All files (*.*)')
+        elif ext in ('.md', '.markdown'):
+            file_types = ('Markdown (*.md)', 'Text (*.txt)', 'All files (*.*)')
+        elif ext in ('.hwp', '.hwpx'):
+            file_types = ('한글 문서 (*.hwpx;*.hwp)', 'All files (*.*)')
         else:
             file_types = ('PDF Document (*.pdf)', 'All files (*.*)')
             
@@ -1048,6 +1180,9 @@ class Api:
         print(f"[Backend] {message}")
 
 if __name__ == '__main__':
+    import tempfile
+    os.environ['WEBVIEW2_USER_DATA_FOLDER'] = os.path.join(tempfile.gettempdir(), f"pb_wv2_{uuid.uuid4().hex[:8]}")
+    
     api = Api()
     frontend_path = os.path.join(os.path.dirname(__file__), 'frontend', 'index.html')
     
@@ -1059,7 +1194,7 @@ if __name__ == '__main__':
     api._window = window
     
     try:
-        webview.start(http_server=True, debug=False)
+        webview.start(http_server=True, debug=True)
     finally:
         api.cleanup()
 

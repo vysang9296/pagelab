@@ -411,21 +411,35 @@ function flCheckMultiDelState() {
 document.addEventListener('change', (e) => { if(e.target.classList.contains('fl-tree-checkbox')) flCheckMultiDelState(); });
 
 function flSwitchRightMode(mode) {
+    if (mode === 'real' && flRightMode !== 'real') {
+        const ok = confirm(
+            "⚠️ 실시간 로컬 모드로 전환합니다.\n\n" +
+            "• 복사·이동·삭제가 실제 디스크에 즉시 반영됩니다.\n" +
+            "• 실수로 삭제하면 복구가 어려울 수 있습니다 (휴지통).\n" +
+            "• 원본을 안전하게 모으려면 [가상 스테이징]을 사용하세요.\n\n" +
+            "계속 전환하시겠습니까?"
+        );
+        if (!ok) return;
+    }
+
     flRightMode = mode;
     const tabStaging = document.getElementById('fl-tab-staging'); const tabReal = document.getElementById('fl-tab-real');
     const actionsStaging = document.getElementById('fl-staging-actions'); const actionsReal = document.getElementById('fl-real-actions');
     const treeStaging = document.getElementById('fl-staging-tree'); const treeReal = document.getElementById('fl-real-tree');
+    const realBanner = document.getElementById('fl-real-mode-banner');
 
     if (mode === 'staging') {
         tabStaging.className = 'fl-mode-btn active'; tabStaging.style.background = '#fff'; tabStaging.style.color = 'var(--primary-blue)'; tabStaging.style.boxShadow = 'var(--shadow-sm)';
         tabReal.className = 'fl-mode-btn'; tabReal.style.background = 'transparent'; tabReal.style.color = 'var(--text-secondary)'; tabReal.style.boxShadow = 'none';
         actionsStaging.style.display = 'flex'; actionsReal.style.display = 'none';
         treeStaging.style.display = 'block'; treeReal.style.display = 'none';
+        if (realBanner) realBanner.style.display = 'none';
     } else if (mode === 'real') {
-        tabReal.className = 'fl-mode-btn active'; tabReal.style.background = '#fff'; tabReal.style.color = 'var(--primary-blue)'; tabReal.style.boxShadow = 'var(--shadow-sm)';
+        tabReal.className = 'fl-mode-btn active'; tabReal.style.background = '#fff'; tabReal.style.color = '#c5221f'; tabReal.style.boxShadow = 'var(--shadow-sm)';
         tabStaging.className = 'fl-mode-btn'; tabStaging.style.background = 'transparent'; tabStaging.style.color = 'var(--text-secondary)'; tabStaging.style.boxShadow = 'none';
         actionsStaging.style.display = 'none'; actionsReal.style.display = 'flex';
         treeStaging.style.display = 'none'; treeReal.style.display = 'block';
+        if (realBanner) realBanner.style.display = 'block';
         if (flRealRootPath) flLoadRealTree(flRealRootPath);
     }
     flCheckMultiDelState();
@@ -1069,7 +1083,12 @@ async function flMultiDeleteSelected() {
         
         if (paths.length === 0) return;
         
-        if (!confirm(`⚠️ 선택한 파일/폴더를 휴지통으로 보내시겠습니까?\n대상 항목 수: ${paths.length}개`)) return;
+        if (!confirm(
+            `⚠️ 【실제 디스크 삭제】\n\n` +
+            `선택한 ${paths.length}개 항목을 휴지통으로 보냅니다.\n` +
+            `이 작업은 실시간 로컬 모드이므로 실제 파일이 영향을 받습니다.\n\n` +
+            `계속하시겠습니까?`
+        )) return;
         
         showLoading("파일을 휴지통으로 보내는 중...");
         if (pywebview && pywebview.api && pywebview.api.fl_real_delete_multi) {
@@ -1262,6 +1281,7 @@ async function flSearchDocuments() {
     if (!query) {
         container.innerHTML = '<div style="color:var(--text-secondary); font-size:13px; text-align:center; margin-top:30px;">상단에서 검색어를 입력하면 일치하는 문서 목록이 표시됩니다.</div>';
         titleEl.innerHTML = '📄 문서를 선택하세요'; contentEl.innerHTML = '키워드가 포함된 앞뒤 본문 문맥이 이곳에 넓게 펼쳐집니다.';
+        flSetPreviewLabButtons(null);
         return;
     }
 
@@ -1289,13 +1309,16 @@ async function flSearchDocuments() {
 
             item.onclick = () => {
                 document.querySelectorAll('.fl-search-result-item').forEach(el => el.classList.remove('active')); item.classList.add('active');
-                titleEl.innerHTML = `📄 ${res.title}`; contentEl.innerHTML = res.snippet;
+                const safeResTitle = typeof escapeHTML === 'function' ? escapeHTML(res.title) : res.title;
+                titleEl.innerHTML = `📄 ${safeResTitle}`;
+                contentEl.innerHTML = res.snippet;
+                flSetPreviewLabButtons(res.path);
             };
 
-            // Right Click Context Menu
+            // Right Click Context Menu (search result → Page/Note Lab 연결)
             item.oncontextmenu = (e) => {
                 e.preventDefault(); e.stopPropagation();
-                flShowContextMenu(e, res.path, false);
+                flShowContextMenu(e, res.path, false, 'search');
             };
 
             const titleBox = document.createElement('div'); titleBox.className = 'fl-search-title';
@@ -1308,6 +1331,66 @@ async function flSearchDocuments() {
             item.appendChild(titleBox); item.appendChild(snippetBox); container.appendChild(item);
         });
     } catch (e) { container.innerHTML = `<div style="color: var(--danger-red); font-size: 13px; text-align: center; margin-top: 30px;">검색 오류: ${e}</div>`; }
+}
+
+/** 검색 미리보기 패널 → Page/Note Lab 바로가기 버튼 */
+let flPreviewActivePath = null;
+function flSetPreviewLabButtons(filePath) {
+    flPreviewActivePath = filePath || null;
+    const noteBtn = document.getElementById('fl-preview-open-notelab');
+    const pageBtn = document.getElementById('fl-preview-open-pagelab');
+    const eligible = filePath && (
+        filePath.toLowerCase().endsWith('.pdf') ||
+        filePath.toLowerCase().endsWith('.hwp') ||
+        filePath.toLowerCase().endsWith('.hwpx')
+    );
+    if (noteBtn) noteBtn.style.display = eligible ? 'inline-block' : 'none';
+    if (pageBtn) pageBtn.style.display = eligible ? 'inline-block' : 'none';
+}
+
+function flInitPreviewLabButtons() {
+    const noteBtn = document.getElementById('fl-preview-open-notelab');
+    const pageBtn = document.getElementById('fl-preview-open-pagelab');
+    if (noteBtn) {
+        noteBtn.addEventListener('click', () => {
+            if (!flPreviewActivePath) return;
+            if (typeof window.openInNoteLab === 'function') {
+                window.openInNoteLab(flPreviewActivePath);
+            } else {
+                alert('Note Lab 모듈을 불러오지 못했습니다.');
+            }
+        });
+    }
+    if (pageBtn) {
+        pageBtn.addEventListener('click', async () => {
+            if (!flPreviewActivePath) return;
+            showLoading('Page Lab으로 파일 전송 중...');
+            try {
+                if (pywebview && pywebview.api && pywebview.api.process_files) {
+                    const results = await pywebview.api.process_files([flPreviewActivePath]);
+                    if (results && results.length > 0 && typeof processNewFiles === 'function') {
+                        processNewFiles(results);
+                    }
+                    if (typeof switchTab === 'function') switchTab('pagelab');
+                    else if (typeof window.switchTab === 'function') window.switchTab('pagelab');
+                } else {
+                    alert('Page Lab 전송 API를 사용할 수 없습니다.');
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Page Lab 전송 실패: ' + err);
+            } finally {
+                hideLoading();
+            }
+        });
+    }
+}
+
+// Wire once DOM is ready (folderlab may load after DOMContentLoaded)
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', flInitPreviewLabButtons);
+} else {
+    flInitPreviewLabButtons();
 }
 
 function flShowContextMenu(event, path, isDir, treeType = 'local', id = null) {
@@ -1359,6 +1442,9 @@ function flShowContextMenu(event, path, isDir, treeType = 'local', id = null) {
         if (duplicateItem) duplicateItem.style.display = 'block';
     } else if (treeType === 'staging_root') {
         if (newFolder) newFolder.style.display = 'block';
+    } else if (treeType === 'search') {
+        if (openFile) openFile.style.display = 'block';
+        if (openFolder) openFolder.style.display = 'block';
     }
 
     // Page Lab & Note Lab integration condition
