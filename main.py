@@ -76,7 +76,8 @@ class Api:
         # Pre-flight checks
         try:
             from backend.refiner_cache import Diagnostics
-            kordoc_exe = "backend/bin/kordoc.exe"
+            from backend.app_paths import kordoc_exe_path
+            kordoc_exe = kordoc_exe_path()
             diagnostics = Diagnostics.run_preflight_checks(kordoc_exe)
             if not diagnostics["kordoc"]:
                 self.log("[Diagnostic] WARNING: kordoc.exe pre-flight check failed.")
@@ -549,8 +550,8 @@ class Api:
     def notelab_get_preflight_status(self):
         """kordoc 및 OCR 사전진단 상태를 프론트엔드로 즉시 반환합니다."""
         from backend.refiner_cache import Diagnostics
-        kordoc_exe = "backend/bin/kordoc.exe"
-        return Diagnostics.run_preflight_checks(kordoc_exe)
+        from backend.app_paths import kordoc_exe_path
+        return Diagnostics.run_preflight_checks(kordoc_exe_path())
 
     def notelab_parse_to_markdown(self, file_path):
         """Kordoc을 사용하여 HWP/PDF 파일을 마크다운으로 파싱하고 필요시 캐시 PDF 경로를 반환합니다."""
@@ -933,8 +934,8 @@ class Api:
             image_pattern = r'!\[.*?\]\((attachments[\\/][^)]+)\)'
             matches = re.findall(image_pattern, content)
             
-            base_dir = os.path.dirname(os.path.abspath(__file__))
-            src_attachments_root = os.path.join(base_dir, "frontend")
+            from backend.app_paths import frontend_static_root_for_attachments
+            src_attachments_root = frontend_static_root_for_attachments()
             
             # 3. Copy each match to the target dir
             for rel_img_path in matches:
@@ -983,12 +984,12 @@ class Api:
         """PDF 페이지 영역을 크롭하여 frontend/attachments 폴더에 이미지로 저장합니다."""
         self.log(f"Crop requested: {pdf_path} page {page_idx} ({x}, {y}, {w}, {h})")
         from backend.crop_engine import CropEngine
+        from backend.app_paths import attachments_dir
         try:
-            # Force target directory to frontend/attachments to align with webview static server
-            base_dir = os.path.dirname(os.path.abspath(__file__))
-            attachments_dir = os.path.join(base_dir, "frontend", "attachments")
+            # Writable attachments (dev: project/frontend/attachments, frozen: next to exe)
+            att_dir = attachments_dir()
             engine = CropEngine()
-            filename = engine.crop_pdf_page(pdf_path, page_idx, x, y, w, h, attachments_dir)
+            filename = engine.crop_pdf_page(pdf_path, page_idx, x, y, w, h, att_dir)
             return {"success": True, "filename": filename, "relative_path": f"attachments/{filename}"}
         except Exception as e:
             self.log(f"Crop error: {e}")
@@ -998,11 +999,11 @@ class Api:
         """이미지 경로를 받아 Windows Media OCR로 텍스트를 추출합니다."""
         self.log(f"OCR request for image: {image_path}")
         from backend.ocr_engine import WindowsOCREngine
+        from backend.app_paths import frontend_static_root_for_attachments
         try:
-            # If path is relative to attachments, resolve to absolute frontend/attachments/
-            if not os.path.isabs(image_path) and image_path.startswith("attachments"):
-                base_dir = os.path.dirname(os.path.abspath(__file__))
-                image_path = os.path.join(base_dir, "frontend", image_path)
+            # If path is relative to attachments, resolve under writable frontend root
+            if not os.path.isabs(image_path) and image_path.replace("\\", "/").startswith("attachments"):
+                image_path = os.path.join(frontend_static_root_for_attachments(), image_path)
                 
             engine = WindowsOCREngine()
             res = engine.ocr_from_image(image_path)
@@ -1181,20 +1182,32 @@ class Api:
 
 if __name__ == '__main__':
     import tempfile
-    os.environ['WEBVIEW2_USER_DATA_FOLDER'] = os.path.join(tempfile.gettempdir(), f"pb_wv2_{uuid.uuid4().hex[:8]}")
-    
+    from backend.app_paths import frontend_index_html, is_frozen, writable_root
+
+    os.environ['WEBVIEW2_USER_DATA_FOLDER'] = os.path.join(
+        tempfile.gettempdir(), f"pb_wv2_{uuid.uuid4().hex[:8]}"
+    )
+    # Ensure writable data dirs exist (cache / attachments)
+    writable_root()
+
     api = Api()
-    frontend_path = os.path.join(os.path.dirname(__file__), 'frontend', 'index.html')
-    
+    frontend_path = frontend_index_html()
+    if not os.path.exists(frontend_path):
+        raise FileNotFoundError(f"Frontend not found: {frontend_path}")
+
     window = webview.create_window(
-        'Public Binder (Page Lab / Folder Lab)', 
-        url=frontend_path, js_api=api,
-        width=1400, height=900, min_size=(1024, 768)
+        'Public Binder (Page Lab / Folder Lab / Note Lab)',
+        url=frontend_path,
+        js_api=api,
+        width=1400,
+        height=900,
+        min_size=(1024, 768),
     )
     api._window = window
-    
+
     try:
-        webview.start(http_server=True, debug=True)
+        # debug=False for portable release; True only in source runs
+        webview.start(http_server=True, debug=not is_frozen())
     finally:
         api.cleanup()
 

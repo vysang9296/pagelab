@@ -2,10 +2,16 @@ import os
 import json
 import shutil
 import subprocess
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 class KordocParserAdapter:
-    def __init__(self, exe_path: str = "backend/bin/kordoc.exe"):
+    def __init__(self, exe_path: Optional[str] = None):
+        if exe_path is None:
+            try:
+                from backend.app_paths import kordoc_exe_path
+                exe_path = kordoc_exe_path()
+            except Exception:
+                exe_path = os.path.join("backend", "bin", "kordoc.exe")
         self.exe_path = os.path.abspath(exe_path)
 
     def parse_to_markdown(self, file_path: str) -> Dict[str, Any]:

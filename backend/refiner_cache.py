@@ -55,7 +55,13 @@ class TextRefiner:
         return re.sub(r' +', ' ', refined_text).strip()
 
 class PdfCacheManager:
-    def __init__(self, cache_dir: str = "backend/cache"):
+    def __init__(self, cache_dir: str = None):
+        if cache_dir is None:
+            try:
+                from backend.app_paths import pdf_cache_dir
+                cache_dir = pdf_cache_dir()
+            except Exception:
+                cache_dir = "backend/cache"
         self.cache_dir = os.path.abspath(cache_dir)
         os.makedirs(self.cache_dir, exist_ok=True)
 

@@ -129,9 +129,27 @@ Public Binder의 텍스트 파서는 포맷별 라이브러리가 없는 극도�
 
 ## 💻 설치 및 개발 구동 가이드
 
+### 0. 포터블 EXE (다른 PC에서 바로 사용)
+
+개발 PC에서 한 번 빌드한 뒤, `dist\PublicBinder\` **폴더 전체**를 복사하면 됩니다.
+
+```bat
+build_portable.bat
+```
+
+| 항목 | 내용 |
+|------|------|
+| 실행 파일 | `dist\PublicBinder\PublicBinder.exe` |
+| 포함물 | UI(`frontend`), `kordoc.exe`, Python 런타임·라이브러리 |
+| 대상 PC | Windows 10/11 64bit, WebView2(대부분 기본 설치) |
+| 선택 | 한컴오피스(한글→PDF 뷰), 한국어 OCR 팩(이미지 글자 인식) |
+
+> 단일 파일 하나가 아니라 **폴더 통째 배포**입니다. (`_internal` 삭제 금지)
+
 ### 1. 사전 요구사항 (Prerequisites)
 * **OS**: Windows 10 / 11 (64bit)
 * **Python**: Python 3.10 이상
+* **kordoc.exe**: `backend\bin\kordoc.exe` (저장소에 포함, Note Lab 고품질 파싱·패치용)
 * **MSVC Runtime**: C++ 라이브러리 및 SQLite ctypes 호출을 위해 필요
 * **한컴오피스 한글**: HWP/HWPX 문서의 완벽한 레이아웃 보존 PDF 변환을 위해 필수 설치되어 있어야 합니다.
 

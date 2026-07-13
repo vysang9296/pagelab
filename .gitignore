@@ -2,16 +2,38 @@
 __pycache__/
 *.py[cod]
 *$py.class
+*.egg-info/
+.eggs/
+*.egg
+
+# Virtualenv
+venv/
+env/
+.venv/
 
 # PyInstaller
 build/
 dist/
-*.spec
+*.manifest
 
-# OS generated files
+# Keep PageLab.spec / PublicBinder.spec tracked (not ignored)
+
+# Runtime / local data (do not ship)
+backend/cache/
+frontend/attachments/
+PublicBinder_data/
+*.log
+
+# OS
 .DS_Store
 Thumbs.db
+desktop.ini
 
-# Virtual Environment
-venv/
-env/
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Test temp
+tests/dummy_cache/
+tests/notes/
